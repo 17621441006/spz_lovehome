@@ -1,0 +1,14 @@
+[
+  {
+    "path": "dist/assets/catbus.glb",
+    "packed": "packed-assets/catbus.glb.gz",
+    "sha256": "d7d086f78e42b4f1ebae3189b0d03e606dc79aec4fd49a0305fea16fba79174d",
+    "bytes": 16199420
+  },
+  {
+    "path": "dist/assets/crystal.glb",
+    "packed": "packed-assets/crystal.glb.gz",
+    "sha256": "3933aaf2ff90d7dcaf9734c55dc665ff3b1b58c9dbe469ca090324b3495db6f3",
+    "bytes": 12721036
+  }
+]
