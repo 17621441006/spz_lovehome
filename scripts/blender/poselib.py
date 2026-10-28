@@ -57,6 +57,9 @@ class Rig:
                 hp0 = self.rest[p][0]
                 H[n] = H[p] + R_abs[p] @ (h0 - hp0)
                 R_abs[n] = R_abs[p] @ d.get(n, Quaternion())
+            off = pose.get('offset', {}).get(n.replace(P, ''))
+            if off is not None:
+                H[n] = H[n] + off
             # leg IK: overwrite UpLeg/Leg/Foot absolute rotations
             for side in ('Left', 'Right'):
                 if side not in ik: continue
@@ -135,15 +138,13 @@ def apply(rig, basis, key_frame=None):
         pb = rig.arm.pose.bones[n]
         pb.rotation_mode = 'QUATERNION'
         pb.rotation_quaternion = q
-        if rig.bones[n].parent is None:
-            pb.location = loc
-        else:
-            pb.location = (0, 0, 0)
+        movable = not rig.bones[n].use_connect
+        pb.location = loc if movable else (0, 0, 0)
         pb.scale = s
         rig.prevq[n] = q.copy()
         if key_frame is not None:
             pb.keyframe_insert('rotation_quaternion', frame=key_frame, group=n)
-            if rig.bones[n].parent is None:
+            if movable:
                 pb.keyframe_insert('location', frame=key_frame, group=n)
             if n == 'Fan':
                 pb.keyframe_insert('scale', frame=key_frame, group=n)

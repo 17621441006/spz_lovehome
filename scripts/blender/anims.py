@@ -1,4 +1,4 @@
-# Author all Zangzangbao (脏脏包) clips procedurally on the rebuilt rig.
+# Author all Zangzangbao clips procedurally on the rebuilt rig.
 import bpy, sys, math, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import importlib, poselib; importlib.reload(poselib)
@@ -33,9 +33,20 @@ class Builder:
         return (v - a * v.dot(a)).normalized()
 
     # ---------- shared layers ----------
+    # Bind pose: chin raised and face turned ~8 deg to its left with a slight roll
+    # (measured by front-view mirror symmetry, see face_sym.py). Stand it upright.
+    HEAD_PITCH = float(os.environ.get('ZZB_HP', '10'))
+    HEAD_YAW, HEAD_ROLL = -8.0, -3.0
+    # Lift the skull a little off the collar so a fur neck shows between chin and robe.
+    NECK_LIFT = float(os.environ.get('ZZB_NL', '0.03'))
+    NECK_FWD = float(os.environ.get('ZZB_NF', '0.008'))
+
     def head_fix(self, amt=1.0):
-        # The bind pose tilts the face ~18 deg up; stand it upright.
-        return {'Neck': eul(x=7 * amt), 'Head': eul(x=11 * amt, z=0)}
+        return {'Neck': eul(x=0.4 * self.HEAD_PITCH * amt),
+                'Head': eul(x=0.6 * self.HEAD_PITCH * amt, z=self.HEAD_YAW, y=self.HEAD_ROLL)}
+
+    def neck_offset(self):
+        return {'Head': Vector((0, -self.NECK_FWD, self.NECK_LIFT))}
 
     def arms_rest(self):
         # right paw lowered in front of the belly (fan pose is the bind pose, blended in at runtime)
@@ -67,6 +78,7 @@ class Builder:
         for f in range(0, last + 1):
             t = (f % nframes) / nframes if loop else f / nframes
             pose = fn(t)
+            pose.setdefault('offset', self.neck_offset())
             basis = solve_full(self.rig, pose)
             apply(self.rig, basis, key_frame=f)
         act.frame_range = (0, last)
@@ -98,44 +110,52 @@ class Builder:
                 z = lift * math.sin(math.pi * s) ** (0.8 if run else 1.0)
                 pitch = lerp(20 if run else 14, -10, ss(0.0, 0.85, s))
             return base + Vector((0, y, z)), eul(x=pitch)
-        aL, qL = foot(t, self.LA + Vector((-0.012, 0, 0)), 'L')
-        aR, qR = foot(t + 0.5, self.RA + Vector((0.012, 0, 0)), 'R')
+        # Feet track under the hip joints (the bind pose is a wide sumo stance) so the legs
+        # step front-to-back instead of waddling sideways; knees point forward.
+        r = self.rig
+        hipL, hipR = r.head('LeftUpLeg'), r.head('RightUpLeg')
+        baseL = Vector((hipL.x + 0.012, self.LA.y + 0.01, self.LA.z))
+        baseR = Vector((hipR.x - 0.012, self.RA.y + 0.01, self.RA.z))
+        fwd = Vector((0, -1, 0))
+        poleL = (fwd + Vector((0.25, 0, 0))).normalized(); poleR = (fwd + Vector((-0.25, 0, 0))).normalized()
+        aL, qL = foot(t, baseL, 'L')
+        aR, qR = foot(t + 0.5, baseR, 'R')
         c = math.cos(TAU * t); s1 = math.sin(TAU * t)
         if run:
             z = bob * (0.5 - 0.5 * math.cos(TAU * 2 * (t - duty / 2 + 0.25)))   # high in flight
         else:
             z = bob * (0.5 + 0.5 * math.cos(TAU * 2 * t)) * -1 + bob * 0.5
-        hips = Vector((0.010 * s1 if not run else 0.004 * s1, 0, -0.012 + z))
-        # left foot forward at t=0 -> right arm forward
+        hips = Vector((0.008 * s1 if not run else 0.004 * s1, 0, (-0.014 if not run else -0.028) + z))
+        # left foot forward at t=0 -> left arm back, right arm forward (opposite to the legs)
         swing = math.cos(TAU * t)
         d = mixd(self.head_fix(),
-                 {'Hips': eul(z=hipYaw * swing, y=(2.5 if not run else 1.5) * s1, x=lean * 0.4),
-                  'Spine': eul(x=lean * 0.3, z=-hipYaw * 0.6 * swing),
-                  'Spine1': eul(x=lean * 0.3, z=-hipYaw * 0.4 * swing),
+                 {'Hips': eul(z=hipYaw * swing, y=(2.0 if not run else 1.5) * s1, x=lean * 0.4),
+                  'Spine': eul(x=lean * 0.3, z=-hipYaw * 0.7 * swing),
+                  'Spine1': eul(x=lean * 0.3, z=-hipYaw * 0.5 * swing),
                   'Spine2': eul(x=lean * 0.2),
                   'Neck': eul(x=-lean * 0.35),
-                  'Head': eul(x=-lean * 0.45 + (1.5 if run else 1) * math.cos(TAU * 2 * t), z=hipYaw * 0.3 * swing),
-                  'LeftArm': eul(x=armA * swing, y=3),
-                  'LeftForeArm': eul(x=(25 if run else 8) + (8 if run else 4) * swing),
-                  'RightArm': eul(x=8 - armA * swing, y=-10),
-                  'RightForeArm': eul(x=(80 if run else 60) + (6 if run else 3) * -swing),
-                  'RightHand': eul(x=-25)},
+                  'Head': eul(x=-lean * 0.45 + (1.5 if run else 1) * math.cos(TAU * 2 * t), z=hipYaw * 0.4 * swing),
+                  'LeftArm': eul(x=armA * swing, y=6),
+                  'LeftForeArm': eul(x=(-30 if run else -12) + (12 if run else 6) * swing),
+                  'RightArm': eul(x=-armA * swing, y=-8),
+                  'RightForeArm': eul(x=(70 if run else 55) - (12 if run else 6) * swing),
+                  'RightHand': eul(x=-20)},
                  self.tail(t, sway=7 if not run else 5, lift=(14 if not run else 26), speed=1, curl=(-3 if not run else -6)),
                  self.hair(t, amp=5 if not run else 7, speed=1, lean=(0 if not run else 12)))
         return {'hips_off': hips, 'd': d,
-                'ik': {'Left': (aL, qL, self.PL), 'Right': (aR, qR, self.PR)}}
+                'ik': {'Left': (aL, qL, poleL), 'Right': (aR, qR, poleR)}}
 
     def walk(self, t):
-        return self.gait(t, S=0.21, duty=0.6, lift=0.045, bob=0.010, lean=5, armA=12, hipYaw=6)
+        return self.gait(t, S=0.26, duty=0.6, lift=0.05, bob=0.010, lean=5, armA=22, hipYaw=7)
 
     def run(self, t):
-        return self.gait(t, S=0.24, duty=0.34, lift=0.07, bob=0.022, lean=12, armA=18, hipYaw=8, run=True)
+        return self.gait(t, S=0.30, duty=0.34, lift=0.075, bob=0.022, lean=12, armA=34, hipYaw=9, run=True)
 
     def sit(self, t):
         br = math.sin(TAU * t * 2)
-        d = mixd(self.head_fix(0.8),
-                 {'Hips': eul(x=-10), 'Spine': eul(x=8 + 0.6 * br), 'Spine1': eul(x=3), 'Spine2': eul(x=0.6 * br),
-                  'Head': eul(x=4, z=4 * math.sin(TAU * t)),
+        d = mixd(self.head_fix(),
+                 {'Hips': eul(x=-6), 'Spine': eul(x=7 + 0.6 * br), 'Spine1': eul(x=3), 'Spine2': eul(x=0.6 * br),
+                  'Head': eul(x=2, z=4 * math.sin(TAU * t)),
                   'LeftArm': eul(x=-6, y=4), 'LeftForeArm': eul(x=-10),
                   'RightArm': eul(x=0, y=-12), 'RightForeArm': eul(x=55), 'RightHand': eul(x=-20)},
                  # tail rests on the ground, curled round to the cat's left side
@@ -166,49 +186,63 @@ class Builder:
                 'Right': (self.RA + Vector((0.015, -0.02, 0.02)), eul(x=10), self.PR)}
         return {'hips_off': Vector((0, 0, 0.012)), 'd': d, 'ik': feet}
 
-    def kick1(self, t):          # front kick with the right leg, 0.7 s
-        up = ss(0.12, 0.32, t) * (1 - ss(0.55, 0.85, t))
-        crouch = ss(0.0, 0.12, t) * (1 - ss(0.12, 0.3, t)) + ss(0.85, 1.0, t) * 0 + (ss(0.8, 0.9, t) * (1 - ss(0.9, 1.0, t))) * 0.6
-        d = mixd(self.head_fix(),
-                 {'Hips': eul(x=-12 * up, z=-10 * up), 'Spine': eul(x=5 * up), 'Spine1': eul(x=3 * up),
-                  'Head': eul(x=-4 * up),
-                  'LeftArm': eul(x=-30 * up, y=10 * up), 'LeftForeArm': eul(x=40 * up),
-                  'RightArm': eul(x=8 + 25 * up, y=-10 - 20 * up), 'RightForeArm': eul(x=60 + 20 * up), 'RightHand': eul(x=-25)},
-                 self.tail(t, sway=6, lift=10 + 25 * up, speed=1.5), self.hair(t, amp=3, lean=-10 * up))
-        kick_target = self.RA + Vector((0.03, -0.20, 0.17))
-        aR = self.RA + Vector((0.012, 0, 0)).lerp(kick_target - self.RA, up)
-        feet = {'Left': (self.LA + Vector((-0.012, 0.01 * up, 0)), eul(), self.PL),
-                'Right': (aR, eul(x=-35 * up), self.PR + Vector((0, 0, 0.8 * up)))}
-        return {'hips_off': Vector((0, 0.02 * up, 0.012 - 0.02 * crouch - 0.01 * up)), 'd': d, 'ik': feet}
+    def source_clip(self, name, data, tail_lift=20):
+        """Re-key one of the model's own Tripo clips (same skeleton and bind pose) onto this rig,
+        removing horizontal root drift and layering the head fix, neck, tail and ponytail on top."""
+        frames, sfps = data['frames'], data['fps']
+        dur = (len(frames) - 1) / sfps
+        n = max(1, round(dur * FPS))
+        act = bpy.data.actions.new(name); act.use_fake_user = True
+        self.arm.animation_data.action = act
+        self.rig.prevq = {}
+        hips = P + 'Hips'
+        h0, h1 = Vector(frames[0][hips][0]), Vector(frames[-1][hips][0])
+        for f in range(n + 1):
+            t = f / FPS
+            sf = min(len(frames) - 1.0001, t * sfps); i0 = int(sf); a = sf - i0
+            A, Bf = frames[i0], frames[i0 + 1]
+            u = f / n
+            extra = solve_full(self.rig, {'d': mixd(self.head_fix(), self.tail(u * 1.5, sway=6, lift=tail_lift, speed=1),
+                                                    self.hair(u * 1.5, amp=4, speed=1, lean=10)),
+                                          'offset': self.neck_offset()})
+            for pb in self.arm.pose.bones:
+                n_ = pb.name
+                pb.rotation_mode = 'QUATERNION'
+                if n_ in A:
+                    loc = Vector(A[n_][0]).lerp(Vector(Bf[n_][0]), a)
+                    q = Quaternion(A[n_][1]).slerp(Quaternion(Bf[n_][1]), a)
+                    if n_ == hips:   # keep vertical motion, drop horizontal drift (in-place kick)
+                        drift = h0.lerp(h1, u) - h0
+                        loc = Vector((loc.x - drift.x, loc.y, loc.z - drift.z))
+                    if n_ in (P + 'Neck', P + 'Head'):
+                        q = q @ extra[n_][1]; loc = loc + extra[n_][0]
+                else:
+                    loc, q = extra[n_][0], extra[n_][1]
+                pq = self.rig.prevq.get(n_)
+                if pq is not None and pq.dot(q) < 0: q.negate()
+                self.rig.prevq[n_] = q.copy()
+                pb.rotation_quaternion = q
+                pb.location = loc if not self.rig.bones[n_].use_connect else Vector()
+                pb.keyframe_insert('rotation_quaternion', frame=f, group=n_)
+                if not self.rig.bones[n_].use_connect:
+                    pb.keyframe_insert('location', frame=f, group=n_)
+        act.frame_range = (0, n)
+        print('CLIP', name, n / FPS, 's (source)')
+        return act
 
-    def kick2(self, t):          # spinning roundhouse, 0.9 s
-        spin = ss(0.1, 0.85, t) * 360
-        ext = ss(0.18, 0.38, t) * (1 - ss(0.68, 0.88, t))
-        yaw = eul(z=-spin)
-        # support (left) foot stays planted, rotates with the body about the hips
-        piv = self.HIP
-        aL = piv + yaw @ (self.LA + Vector((-0.012, 0, 0)) - piv); aL.z = self.LA.z
-        out = (self.RA + Vector((-0.10, -0.06, 0.15)))
-        aRl = (self.RA + Vector((0.012, 0, 0))).lerp(out, ext)
-        aR = piv + yaw @ (aRl - piv); aR.z = aRl.z
-        d = mixd(self.head_fix(),
-                 {'Hips': yaw @ eul(y=-12 * ext), 'Spine': eul(y=8 * ext), 'Head': eul(y=6 * ext),
-                  'LeftArm': eul(x=-20 * ext, y=35 * ext), 'LeftForeArm': eul(x=20 * ext),
-                  'RightArm': eul(x=8, y=-10 - 30 * ext), 'RightForeArm': eul(x=60 - 20 * ext), 'RightHand': eul(x=-25)},
-                 self.tail(t, sway=4, lift=15 + 30 * ext, speed=1), self.hair(t, amp=3, lean=30 * ext))
-        feet = {'Left': (aL, yaw, yaw @ self.PL), 'Right': (aR, yaw @ eul(x=-20 * ext, y=-40 * ext), yaw @ (self.PR + Vector((-0.6 * ext, 0, 0.5 * ext))))}
-        return {'hips_off': Vector((0, 0, 0.012 + 0.015 * ext)), 'd': d, 'ik': feet}
-
-def build_all(arm):
+def build_all(arm, kicks=None):
     b = Builder(arm)
     acts = [b.clip('wait', 90, b.wait), b.clip('walk', 14, b.walk), b.clip('run', 12, b.run),
-            b.clip('sit', 90, b.sit), b.clip('jump', 15, b.jump, loop=False), b.clip('jump_down', 30, b.jump_down),
-            b.clip('front_kick_01', 21, b.kick1, loop=False), b.clip('front_kick_02', 27, b.kick2, loop=False)]
+            b.clip('sit', 90, b.sit), b.clip('jump', 15, b.jump, loop=False), b.clip('jump_down', 30, b.jump_down)]
+    for name in ('front_kick_01', 'front_kick_02'):
+        acts.append(b.source_clip(name, kicks[name]))
     return b, acts
 
 if __name__ == '__main__':
+    import json
     argv = sys.argv[sys.argv.index('--') + 1:]
     bpy.ops.wm.open_mainfile(filepath=argv[0])
+    kicks = json.load(open(os.path.join(os.path.dirname(argv[0]), 'source_kicks.json')))
     arm = bpy.data.objects['CatRig']
-    b, acts = build_all(arm)
+    b, acts = build_all(arm, kicks)
     bpy.ops.wm.save_as_mainfile(filepath=argv[1])

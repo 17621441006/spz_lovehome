@@ -1,4 +1,4 @@
-# Stage 1: clean rig + rebuilt skin weights for Zangzangbao (脏脏包).
+# Stage 1: clean rig + rebuilt skin weights for 閼村繗鍓伴崠?
 # Usage: blender -b --factory-startup --python build_rig.py -- src.glb out.blend
 import bpy, bmesh, sys, math
 import numpy as np
@@ -13,6 +13,27 @@ scene = bpy.context.scene
 arm = next(o for o in scene.objects if o.type == 'ARMATURE')
 arm.name = 'CatRig'
 W = arm.matrix_world.copy(); Wi = W.inverted()
+# Keep the model's own kick clips (sampled bone-local transforms) so anims.py can reuse them.
+import json, os
+src_fps = scene.render.fps / scene.render.fps_base
+kicks = {}
+for act in bpy.data.actions:
+    if act.name not in ('front_kick_01', 'front_kick_02'): continue
+    arm.animation_data.action = act
+    try: arm.animation_data.action_slot = act.slots[0]
+    except Exception: pass
+    f0, f1 = int(act.frame_range[0]), int(act.frame_range[1])
+    frames = []
+    for f in range(f0, f1 + 1):
+        scene.frame_set(f)
+        fr = {}
+        for pb in arm.pose.bones:
+            m = pb.matrix_basis
+            fr[pb.name] = [list(m.to_translation()), list(m.to_quaternion())]
+        frames.append(fr)
+    kicks[act.name] = {'fps': src_fps, 'frames': frames}
+    print('KICK', act.name, len(frames), 'frames @', src_fps)
+json.dump(kicks, open(os.path.join(os.path.dirname(OUT), 'source_kicks.json'), 'w'))
 # Drop Tripo's animations; we author new ones.
 if arm.animation_data:
     arm.animation_data.action = None
@@ -51,6 +72,9 @@ for b in list(eb):
     n = b.name.replace(P, '')
     if any(k in n for k in ('Index', 'Middle', 'Ring', 'Pinky', 'Thumb')) or n.endswith('_End'):
         eb.remove(b)
+# Neck and head may translate (a little visible neck between chin and collar).
+eb[P + 'Neck'].use_connect = False
+eb[P + 'Head'].use_connect = False
 
 def centerline(obj, root_pred, nbins):
     """Geodesic (edge-walk) bins from the root region -> joint positions in world space."""

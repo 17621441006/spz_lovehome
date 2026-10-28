@@ -6,7 +6,9 @@ import * as THREE from 'three';
 // it no longer rebuilds or deforms any part of the mesh, so face and robe keep their shape.
 //
 // Ground speed (in game metres/second at scale 1.25) at which each loop has no foot slide.
-export const CAT_CLIP_SPEED={walk:.9375,run:2.206};
+export const CAT_CLIP_SPEED={walk:1.161,run:2.757};
+// The two kicks are the model's own Tripo clips; they read best a little faster than authored.
+const RATE={front_kick_01:1.85,front_kick_02:1.6};
 const FAN_MESH=/^fan_part_/;
 const ONE_SHOTS=['jump','front_kick_01','front_kick_02'];
 const FADE={sit:.55,wait:.35,walk:.22,run:.18,jump:.08,jump_down:.18,front_kick_01:.09,front_kick_02:.09};
@@ -47,7 +49,7 @@ export class ModelCat{
  play(name,fade=FADE[name]??.25,force=false){
   if((this.state===name&&!force)||!this.actions[name])return;
   const next=this.actions[name],old=this.actions[this.state];
-  next.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).play();
+  next.reset().setEffectiveTimeScale(RATE[name]??1).setEffectiveWeight(1).play();
   if(old&&old!==next)old.crossFadeTo(next,fade,true);else if(!old)next.fadeIn(fade);
   this.state=name;
  }
