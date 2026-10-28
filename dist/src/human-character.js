@@ -1,6 +1,6 @@
 import {loadGLB} from './asset-stream.js';
 import * as THREE from 'three';
-import {solveLimb,setWorldQuaternion} from './rig-repair.js';
+import {solveLimb,setWorldQuaternion} from './limb-ik.js';
 import {XIAOYONG_RUN} from './xiaoyong-run.js';
 
 export async function loadHumanCharacter(id){return new HumanCharacter(await loadGLB(`assets/characters/${id}.glb`),id);}

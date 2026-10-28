@@ -10,7 +10,7 @@ const {SmallTotoro}=await import('../dist/src/totoro.js');
 const {heightAt,buildTerrain,LAYOUT}=await import('../dist/src/terrain.js');
 const scene=new THREE.Scene();scene.add(buildTerrain());buildWorld(scene);await loadDreamWorld(scene,false);
 assert(scene.getObjectByName('脏脏包的森林树屋'));assert(scene.getObjectByName('稻荷山道 · 32级石阶'));
-const cat=await loadModelCat('assets/cat-rig.glb',1.25);scene.add(cat.root);assert.equal(Object.keys(cat.actions).length,9);
+const cat=await loadModelCat('assets/cat-rig.glb',1.25);scene.add(cat.root);assert.equal(Object.keys(cat.actions).length,8);
 let skinned=0;cat.root.traverse(o=>{if(o.isSkinnedMesh)skinned++});assert(skinned>0);
 const hips=cat.model.getObjectByName('mixamorigHips'),leg=cat.model.getObjectByName('mixamorigLeftLeg');let maxDrift=0,minRot=Infinity,maxRot=-Infinity;
 for(let frame=0;frame<1200;frame++){cat.update(1/60,{grounded:true,speed:2.5,idle:0,vy:0});maxDrift=Math.max(maxDrift,Math.abs(hips.position.z-.182228729));minRot=Math.min(minRot,leg.quaternion.x);maxRot=Math.max(maxRot,leg.quaternion.x);}

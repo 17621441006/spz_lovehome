@@ -1,6 +1,6 @@
 # 脏脏包 · 风与森林
 
-一个以脏脏包、小涌和小司为主角的 Three.js 森林探索游戏。当前源码对应 v18（2026-10-28）。
+一个以脏脏包、小涌和小司为主角的 Three.js 森林探索游戏。当前源码对应 v19（2026-10-29）。
 
 ## 本地运行
 
@@ -28,6 +28,16 @@ python -m http.server 8642 --directory dist
 - 「配乐」调整音量，也能选择本地音频；本地文件不上传，刷新后需重选。
 - 地址末尾加 `?q=low` 使用低画质；加 `?q=high` 使用高画质。
 
+## v19 更新（脏脏包重新绑定）
+
+- 用用户提供的 Tripo 模型在 Blender 里重做骨骼和权重：衣服、毛发和身体共用一套平滑权重，动起来贴合在一起，不再穿模或撕裂；头部、脸、耳朵、胡须整体跟着头骨走，运行时不再修改任何网格，保留原始对称的脸。
+- 新增 5 节尾巴骨、3 节马尾骨和折扇骨（合扇 = 沿扇面横向缩放）。
+- 动作全部在 Blender 里重新制作：待机时身体和头部正立站好（修正原模型抬下巴的角度），配合呼吸、尾巴和马尾摆动；走路、跑步用脚部 IK 落地不滑步；坐姿改成抱膝式坐地（臀部着地、双腿前伸、尾巴绕到身侧贴地）；另有起跳、下落、前踢、回旋踢。
+- 装备折扇时站定会举起右爪摇扇（即模型原始的执扇姿势），走动时合扇放下。
+- 脏脏包步行 1.35 米/秒、奔跑 3.2 米/秒，与动作步幅匹配。
+- 删除旧的运行时补丁（`rig-repair.js`、`cat-appearance.js`、`cat-face.js`、`garment-detail.js`、`garment-shells.js`）。
+- 重新生成模型：`powershell -ExecutionPolicy Bypass -File scripts\blender\pipeline.ps1 -Source <源 GLB> -Blender <blender.exe>`。
+
 ## v18 更新
 
 - 撤回 v17 的头部裁切和拉长胸口，保留原始头部、下巴的全部三角面。内衬退到胸毛后方，肩袖增加封闭端面与同色连接；坐下时保持躯干正直、降低骨盆并让脚掌接地。
@@ -40,7 +50,8 @@ python -m http.server 8642 --directory dist
 
 - `dist/index.html`：界面与样式。
 - `dist/src/main.js`：游戏循环、输入、移动和相机。
-- `dist/src/modelcat.js`、`rig-repair.js`、`cat-appearance.js`、`garment-detail.js`：脏脏包动作与外形修复。
+- `dist/src/modelcat.js`：脏脏包动作播放、折扇与转身倾斜。
+- `scripts/blender/`：脏脏包骨骼、权重与动作的 Blender 生成脚本。
 - `dist/src/human-character.js`、`characters.js`：人类角色与角色切换。
 - `dist/src/terrain.js`、`dream.js`、`elder-tree.js`：地形、场景与古树秘境。
 - `dist/src/catbus.js`：固定巡游、车身避障与乘降。
@@ -56,8 +67,8 @@ python -m http.server 8642 --directory dist
 python restore_assets.py
 npm ci
 npm run check
-node scripts/cat18-check.mjs
-node scripts/pose-check.mjs
+node scripts/cat19-check.mjs
+node scripts/cat-stretch.mjs
 node scripts/human-motion-check.mjs
 node scripts/glade18-check.mjs
 node scripts/catbus-check.mjs

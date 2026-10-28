@@ -3,7 +3,7 @@ import {loadModelCat} from './modelcat.js';
 import {loadHumanCharacter} from './human-character.js';
 
 export const CHARACTER_DEFS={
- zangzangbao:{name:'脏脏包',subtitle:'一身红衣，慢慢巡山',image:'assets/characters/zangzangbao-preview.png',walk:1.9,run:4.4,cameraHeight:.75,actions:[['front_kick_01','前踢'],['front_kick_02','回旋踢']]},
+ zangzangbao:{name:'脏脏包',subtitle:'一身红衣，慢慢巡山',image:'assets/characters/zangzangbao-preview.png',walk:1.35,run:3.2,cameraHeight:.75,actions:[['front_kick_01','前踢'],['front_kick_02','回旋踢']]},
  xiaoyong:{name:'小涌',subtitle:'和风同行，随处发现',image:'assets/characters/xiaoyong-preview.png',walk:2.5,run:9.2,cameraHeight:.95,actions:[['stretch','伸懒腰'],['hug','抱抱']]},
  xiaosi:{name:'小司',subtitle:'轻快出发，跳一支舞',image:'assets/characters/xiaosi-preview.png',walk:1.15,run:3,cameraHeight:.85,actions:[['mesh_kick','踢腿'],['mesh_dance','跳舞']]},
 };
