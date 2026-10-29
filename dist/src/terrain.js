@@ -10,6 +10,9 @@ export const LAYOUT = {
   camphor: { x: -14, z: -16 },
   house: { x: -6, z: 21 },
   pond: { x: 8, z: 5, r: 3.3 },
+  // v20: a new northern lobe of land holding the big lake and the fishing pier
+  lake: { x: -4, z: -60, r: 11.5, level: -0.32 },
+  lakeLobe: 34, lakeLobeWidth: 0.43,
   sprout: { x: 2, z: -13 },
   playRadius: 49,
   terrainRadius: 54,
@@ -41,7 +44,21 @@ function polyDist(px, pz, pts) {
 export function roadDist(x, z) {
   return Math.min(Math.abs(x - LAYOUT.roadX), polyDist(x, z, housePath));
 }
-export function trailDist(x, z) { return Math.min(polyDist(x, z, shrinePath),polyDist(x,z,[[18,14],[23,11],[23,40]])); }
+const lakePath = [[-8, -10], [-6, -22], [-4.5, -34], [-3.2, -46]];
+export function trailDist(x, z) { return Math.min(polyDist(x, z, shrinePath),polyDist(x,z,[[18,14],[23,11],[23,40]]),polyDist(x,z,lakePath)); }
+// The island edge bulges north to make room for the lake (radius varies with direction only).
+const LAKE_DIR = Math.atan2(LAYOUT.lake.z, LAYOUT.lake.x);
+export function edgeRadius(x, z) { let d = Math.atan2(z, x) - LAKE_DIR; d = Math.atan2(Math.sin(d), Math.cos(d)); return LAYOUT.playRadius + LAYOUT.lakeLobe * Math.exp(-((d / LAYOUT.lakeLobeWidth) ** 2)); }
+// Organic shoreline radius of the lake for a given direction from its centre.
+export function lakeShore(x, z) { const L = LAYOUT.lake, a = Math.atan2(z - L.z, x - L.x); return L.r * (1 + 0.07 * Math.sin(3 * a + 0.6) + 0.045 * Math.sin(5 * a + 2.1)); }
+export function lakeDist(x, z) { return Math.hypot(x - LAYOUT.lake.x, z - LAYOUT.lake.z); }
+/** true where the lake is too deep to walk (the pier is handled by colliders). */
+export function inLakeWater(x, z, pad = 0) { return lakeDist(x, z) < lakeShore(x, z) - 0.35 - pad; }
+/** random point inside the playable island (main disc or the lake lobe). */
+export function randomIslandPoint(R, maxR = 47) {
+  if (R() < 0.2) for (let i = 0; i < 12; i++) { const x = LAYOUT.lake.x + (R() - 0.5) * 60, z = LAYOUT.lake.z + (R() - 0.5) * 46; if (Math.hypot(x, z) > maxR && Math.hypot(x, z) < edgeRadius(x, z) - 2.5) return [x, z]; }
+  const a = R() * Math.PI * 2, r = Math.sqrt(R()) * maxR; return [Math.cos(a) * r, Math.sin(a) * r];
+}
 export function catbusRouteDist(x,z){const r=LAYOUT.catbusRoute;return Math.abs(Math.hypot((x-r.x)/r.rx,(z-r.z)/r.rz)-1)*Math.min(r.rx,r.rz);}
 
 const ss = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -114,7 +131,11 @@ function rawHeightAt(x, z) {
   const land=3.8*hill(-29,-25,15,12)+2.4*hill(-29,29,15,10)-1.4*hill(-7,-30,7,13)+4.1*hill(-42,-3,5.5,21);
   h+=land*west*outer*pathClear;
   // A finite grassy plateau falls into cloud-filled ravines beyond the play edge.
-  h-=11*ss(L.playRadius,L.terrainRadius,r);
+  const edge=edgeRadius(x,z);
+  h-=11*ss(edge,edge+L.terrainRadius-L.playRadius,r);
+  // lake: calm the meadow around it, lift a soft rim, then carve the basin
+  const dl=lakeDist(x,z);
+  if(dl<L.lake.r+22){const shore=lakeShore(x,z),calm=ss(shore+18,shore+6,dl);h=THREE.MathUtils.lerp(h,h*.35+.32,calm);h=THREE.MathUtils.lerp(h,-2.4,ss(shore+1.1,shore-3.2,dl));}
   const dp = Math.hypot(x - L.pond.x, z - L.pond.z);
   if (dp < L.pond.r + 1.5) h -= 0.75 * ss(L.pond.r + 1.5, L.pond.r - 0.8, dp);
   if (roadDist(x, z) < 1.6) h -= 0.05 * ss(1.6, 0.8, roadDist(x, z));
@@ -129,8 +150,8 @@ export function heightAt(x,z){
  return h;
 }
 export function buildTerrain() {
-  const rings=108,sectors=256,verts=[0,heightAt(0,0),0],uv=[.5,.5],indices=[];
-  for(let ring=1;ring<=rings;ring++)for(let j=0;j<sectors;j++){const r=LAYOUT.terrainRadius*ring/rings,a=j/sectors*Math.PI*2,x=Math.cos(a)*r,z=Math.sin(a)*r;verts.push(x,heightAt(x,z),z);uv.push(.5+x/108,.5+z/108);}
+  const rings=132,sectors=320,verts=[0,heightAt(0,0),0],uv=[.5,.5],indices=[];
+  for(let ring=1;ring<=rings;ring++)for(let j=0;j<sectors;j++){const a=j/sectors*Math.PI*2,R0=edgeRadius(Math.cos(a),Math.sin(a))+LAYOUT.terrainRadius-LAYOUT.playRadius,r=R0*ring/rings,x=Math.cos(a)*r,z=Math.sin(a)*r;verts.push(x,heightAt(x,z),z);uv.push(.5+x/108,.5+z/108);}
   for(let j=0;j<sectors;j++)indices.push(0,1+(j+1)%sectors,1+j);
   for(let r=2;r<=rings;r++)for(let j=0;j<sectors;j++){const a=1+(r-2)*sectors+j,b=1+(r-2)*sectors+(j+1)%sectors,c=1+(r-1)*sectors+j,d=1+(r-1)*sectors+(j+1)%sectors;indices.push(a,b,c,b,d,c);}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(indices);
@@ -148,7 +169,8 @@ export function buildTerrain() {
     c.lerp(forest, .35*ss(30, 43, r));
     const slope=Math.hypot(heightAt(x+.3,z)-heightAt(x-.3,z),heightAt(x,z+.3)-heightAt(x,z-.3))/.6;
     c.lerp(cliff,ss(.5,1.3,slope)*.72);
-    c.lerp(cliff,ss(LAYOUT.playRadius,LAYOUT.terrainRadius-.5,r));
+    const edge=edgeRadius(x,z);c.lerp(cliff,ss(edge,edge+LAYOUT.terrainRadius-LAYOUT.playRadius-.5,r));
+    const dl=lakeDist(x,z),shore=lakeShore(x,z);c.lerp(dirt,.5*ss(shore+1.8,shore+.3,dl));c.lerp(mud,ss(shore-.1,shore-1.4,dl));
     const dc = Math.hypot(x - LAYOUT.camphor.x, z - LAYOUT.camphor.z);
     c.lerp(grassC, ss(12, 4, dc) * 0.7);
     const rd = roadDist(x, z) + ss(34, 40, r) * 5;
@@ -291,8 +313,8 @@ export function buildGrass(count, exclude) {
   let n = 0, tries = 0;
   while (n < count && tries < count * 4) {
     tries++;
-    const a = R() * Math.PI * 2, r = Math.sqrt(R()) * 47;
-    const x = Math.cos(a) * r, z = Math.sin(a) * r;
+    const [x, z] = randomIslandPoint(R, 47);
+    if (lakeDist(x, z) < lakeShore(x, z) + 0.3) continue;
     if (roadDist(x, z) < 1.2) continue;
     if (trailDist(x, z) < 0.45 && R() < 0.85) continue;
     if (Math.hypot(x - LAYOUT.pond.x, z - LAYOUT.pond.z) < LAYOUT.pond.r + 0.2) continue;
@@ -331,7 +353,7 @@ function buildClover(count,exclude){
   mat.onBeforeCompile=shader=>{shader.uniforms.uTerrainSnow=terrainSnow;shader.fragmentShader='uniform float uTerrainSnow;\n'+shader.fragmentShader;shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb=mix(diffuseColor.rgb,vec3(.97,.98,1.0),uTerrainSnow*.95);');};
   mat.customProgramCacheKey=()=> 'meadow-clover-snow-v6';
   const mesh=new THREE.InstancedMesh(geo,mat,count),R=rng(194),matrix=new THREE.Matrix4(),q=new THREE.Quaternion(),p=new THREE.Vector3(),scale=new THREE.Vector3();let n=0,tries=0;
-  while(n<count&&tries<count*8){tries++;const a=R()*Math.PI*2,r=Math.sqrt(R())*45,x=Math.cos(a)*r,z=Math.sin(a)*r;
+  while(n<count&&tries<count*8){tries++;const [x,z]=randomIslandPoint(R,45);if(lakeDist(x,z)<lakeShore(x,z)+.4)continue;
     if(roadDist(x,z)<1.35||trailDist(x,z)<.5||Math.hypot(x-LAYOUT.pond.x,z-LAYOUT.pond.z)<LAYOUT.pond.r+.3||(exclude&&exclude(x,z)))continue;
     const patch=.5+.5*Math.sin(x*.73+z*.13)*Math.cos(z*.48);if(R()>patch*.85+.1)continue;
     const s=.7+R()*1.2;matrix.compose(p.set(x,heightAt(x,z)+.012,z),q.setFromAxisAngle(new THREE.Vector3(0,1,0),R()*Math.PI*2),scale.setScalar(s));mesh.setMatrixAt(n++,matrix);
@@ -353,10 +375,10 @@ export function buildFlowers(count, exclude) {
   let n = 0;
   while (n < count) {
     // clustered patches
-    const cx = (R() - 0.5) * 90, cz = (R() - 0.5) * 90;
+    const [cx, cz] = randomIslandPoint(R, 45);
     for (let k = 0; k < 8 && n < count; k++) {
       const x = cx + (R() - 0.5) * 3, z = cz + (R() - 0.5) * 3;
-      if (Math.hypot(x, z) > 46 || roadDist(x, z) < 1.4 || Math.hypot(x - LAYOUT.pond.x, z - LAYOUT.pond.z) < LAYOUT.pond.r + 0.4) continue;
+      if (Math.hypot(x, z) > edgeRadius(x, z) - 3 || lakeDist(x, z) < lakeShore(x, z) + 0.6 || roadDist(x, z) < 1.4 || Math.hypot(x - LAYOUT.pond.x, z - LAYOUT.pond.z) < LAYOUT.pond.r + 0.4) continue;
       if (exclude && exclude(x, z)) continue;
       const h = 0.25 + R() * 0.25, y = heightAt(x, z);
       m.compose(p.set(x, y, z), q.identity(), s.set(1, h, 1));

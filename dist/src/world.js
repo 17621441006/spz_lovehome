@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { toon, rng, wobble, ellipsoid } from './toon.js';
 import { LAYOUT, heightAt, roadDist } from './terrain.js';
 import { createDreamWater } from './dream.js';
+import { nearLake } from './lake.js';
 
 export const colliders = []; // {type:'circle'|'box', x,z,r | minX..., top, bounce?, onBounce?}
 export const lilyPads = [];
@@ -693,5 +694,6 @@ export function nearStructure(x, z, pad = 0) {
   if (Math.hypot(x - L.totoro.x, z - L.totoro.z) < 2.2 + pad) return true;
   if (Math.hypot(x - L.pond.x, z - L.pond.z) < L.pond.r + 0.5 + pad) return true;
   if (Math.hypot(x - L.sprout.x, z - L.sprout.z) < 1.2 + pad) return true;
+  if (nearLake(x, z, pad)) return true;
   return false;
 }

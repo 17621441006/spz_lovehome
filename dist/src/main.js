@@ -11,7 +11,7 @@ import {SnowTracks} from './snow-tracks.js';
 // 脏脏包的龙猫森林 — main game loop
 import * as THREE from 'three';
 import { furEnv } from './fur.js';
-import { LAYOUT, heightAt, buildTerrain, buildGrass, buildFlowers, grassUniforms, setTerrainSnow } from './terrain.js';
+import { LAYOUT, heightAt, buildTerrain, buildGrass, buildFlowers, grassUniforms, setTerrainSnow, edgeRadius, inLakeWater, lakeDist } from './terrain.js';
 import {
   buildWorld, colliders, groundAt, skyUniforms, cloudMat, windowMats, floatUniforms, Rain, Acorns, sproutTree,
   nearStructure, lampLight, lampBulbMat, waterMat,
@@ -21,6 +21,12 @@ import {EquipmentPanel} from './equipment.js';
 import {Snow} from './weather.js';
 import { BigTotoro, SmallTotoro, SootSprites } from './totoro.js';
 import { Sound } from './audio.js';
+import { TotoroRainGame } from './minigames/totoro-rain.js';
+import { RoarContest } from './minigames/roar-contest.js';
+import { FishingGame, FISH } from './minigames/fishing.js';
+import { showDialog, isDialogOpen, KEEPER_FACE } from './minigames/dialog.js';
+import { loadJournal, saveJournal } from './minigames/journal.js';
+import { buildLake, onPier, FISHING_SPOT, KEEPER_POS } from './lake.js';
 import { loadDreamWorld, updateDream, magicTreePrototype } from './dream.js';
 
 const params = new URLSearchParams(location.search);
@@ -62,6 +68,7 @@ const characterReady=roster.select(initialCharacter);
 // ---------------- world ----------------
 scene.add(buildTerrain());
 buildWorld(scene);
+const lake = buildLake(scene, colliders);
 await loadDreamWorld(scene, LOW,{progressive:true});
 await addEnchantedGrove(scene,LOW,{progressive:true});
 scene.add(buildGrass(LOW ? 15000 : 38000, (x, z) => nearStructure(x, z, 0)));
@@ -124,7 +131,7 @@ if (params.get('cam')) {
 const keys = {};
 let started = false;
 addEventListener('keydown', (e) => {
-  if (!started || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  if (!started || busy() || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
   const k = e.key.toLowerCase();
   if(!$('busDialog').hidden){if(k==='escape')$('busDialog').hidden=true;return;}
   if(catbus.riding&&k!=='e'&&k!=='escape')return;
@@ -133,7 +140,7 @@ addEventListener('keydown', (e) => {
   if(e.repeat && [' ','e','j','k','c','x'].includes(k))return;
   keys[k] = true; keys[e.code] = true;
   if (k === ' ') { P.jumpBuf = 0.15; e.preventDefault(); }
-  if (k === 'e') {if(catbus.riding||P.pos.distanceTo(catbus.root.position)<6)openBusDialog();else meow();}
+  if (k === 'e') {if(!catbus.riding&&nearKeeper())talkToKeeper();else if(catbus.riding||P.pos.distanceTo(catbus.root.position)<6&&!nearTotoro())openBusDialog();else meow();}
   if(k==='j')performAction(0);
   if(k==='k')performAction(1);
   if (k === 'r') toggleRain();
@@ -151,7 +158,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)clearMoveme
 const canvas = renderer.domElement;
 let lastX = 0, lastY = 0, dragId = null;
 canvas.addEventListener('pointerdown', (e) => {
-  if(!started||characterMenuOpen||equipment.open)return;
+  if(!started||characterMenuOpen||equipment.open||busy())return;
   if(e.pointerType==='mouse'&&canvas.requestPointerLock){try{const p=canvas.requestPointerLock();p?.catch(()=>{});}catch{} }
   if (e.pointerType === 'touch' && e.clientX < innerWidth * 0.45) return;
   dragId = e.pointerId; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId);
@@ -196,6 +203,7 @@ const $ = (id) => document.getElementById(id);
 $('acornTotal').textContent = acorns.total;
 function openBusDialog(){if(!started||characterMenuOpen||equipment.open)return;if(document.pointerLockElement)document.exitPointerLock();clearMovement();$('busDialog').hidden=false;$('busMessage').textContent=catbus.riding?'想在这里歇一歇吗？我会慢慢停稳，再让你下车。':'喵～要搭一程吗？我们慢慢逛森林，不赶时间。';$('busClose').focus();$('busBoard').hidden=catbus.riding;$('busExit').hidden=!catbus.riding;}
 $('busPrompt').onclick=openBusDialog;
+$('actPrompt').onclick=()=>{if($('actPrompt').dataset.target==='keeper')talkToKeeper();else meow();};
 $('busClose').onclick=()=>{$('busDialog').hidden=true;};
 $('busBoard').onclick=()=>{if(catbus.speed>.05){$('busMessage').textContent='等我停稳一下，再点「上车慢游」就好。';return;}catbus.riding=true;catbus.stopping=false;catbus.wait=1;cat.model.rotation.y=0;cat.oneShot=null;P.jumpBuf=0;clearMovement();$('busDialog').hidden=true;};
 $('busExit').onclick=()=>{catbus.stopping=true;$('busDialog').hidden=true;toast('猫车正在缓缓停车…');};
@@ -283,7 +291,88 @@ if (params.has('hideui')) toggleUI();
 // ---------------- actions ----------------
 function performAction(index){if(catbus.riding)return;if(!started||characterMenuOpen||switching||equipment.open||!P.grounded)return;const action=CHARACTER_DEFS[characterId].actions[index][0];if(cat.triggerAction(action)){P.idle=0;P.vel.multiplyScalar(.08);}}
 
-let roarGust = 0, pendingRoar = -1;
+let roarGust = 0, pendingRoar = -1, pendingInvite = false, inviteT = -1;
+// 龙猫大人的小游戏：吼完一声后邀请玩家玩《咚！伞上的雨滴》
+const totoroGame = new TotoroRainGame({
+  sound,
+  getPlayerName: () => CHARACTER_DEFS[characterId].name,
+  onOpen() { if (document.pointerLockElement) document.exitPointerLock(); clearMovement(); },
+  onClose(result) {
+    clearMovement(); totoroCD = 4;
+    if (!result) { say('呼噜……下次再来玩哦', totoroHead, 2); return; }
+    soot.scatter(new THREE.Vector3(LAYOUT.totoro.x, 0, LAYOUT.totoro.z), 30);
+    if (result.stars > 0) {
+      say('呼噜噜～谢谢你！', totoroHead, 2.4, true);
+      const gifts = result.gained.map((g) => g.icon + ' ' + g.name + (g.count > 1 ? ' ×' + g.count : '')).join('、');
+      toast(`${'★'.repeat(result.stars)} 龙猫大人很开心！<br>${gifts ? '收到：' + gifts : '叶子伞已经在你的手账里啦'}`, 4.5);
+    } else say('雨声还不够响呢～再来！', totoroHead, 2.2);
+  },
+});
+// ---------------- v20: who can we talk to, and the new mini-games ----------------
+const TOTORO_TALK = 5.2, KEEPER_TALK = 3.2;
+let totoroCD = 0, keeperTalking = false;
+const nearTotoro = () => Math.hypot(P.pos.x - LAYOUT.totoro.x, P.pos.z - LAYOUT.totoro.z) < TOTORO_TALK;
+const nearKeeper = () => Math.hypot(P.pos.x - KEEPER_POS.x, P.pos.z - KEEPER_POS.z) < KEEPER_TALK;
+function busy() { return totoroGame.open || roarContest.open || fishing.open || keeperTalking || isDialogOpen(); }
+function enterMinigame() { if (document.pointerLockElement) document.exitPointerLock(); clearMovement(); document.body.classList.add('minigame'); }
+function leaveMinigame() { clearMovement(); document.body.classList.remove('minigame'); }
+const roarContest = new RoarContest({
+  totoro, sound, say, totoroHead: () => totoroHead(),
+  soot: () => soot.scatter(new THREE.Vector3(LAYOUT.totoro.x, 0, LAYOUT.totoro.z), 40),
+  shot(on) {
+    if (!on) { delete cam.fixed; return; }
+    const T = new THREE.Vector3(LAYOUT.totoro.x, P.pos.y, LAYOUT.totoro.z), toP = P.pos.clone().sub(T).setY(0).normalize();
+    P.heading = Math.atan2(-toP.x, -toP.z);
+    // over-the-shoulder: behind and a little beside the player, looking up at Totoro's face
+    const side = new THREE.Vector3(-toP.z, 0, toP.x);
+    cam.fixed = { pos: P.pos.clone().addScaledVector(toP, 4.2).addScaledVector(side, 1.6).add(new THREE.Vector3(0, 1.9, 0)), look: T.clone().addScaledVector(toP, 0.6).add(new THREE.Vector3(0, 2.6, 0)) };
+  },
+  onOpen: enterMinigame,
+  onClose(result) {
+    leaveMinigame(); totoroCD = 4;
+    if (!result) { say('呼噜……下次再来比哦', totoroHead, 2); return; }
+    if (result.stars > 0) {
+      totoro.grin = 2; say('嗷呜～你吼得真好！', totoroHead, 2.4, true);
+      const gifts = result.gained.map((g) => g.icon + ' ' + g.name + (g.count > 1 ? ' ×' + g.count : '')).join('、');
+      toast(`${'★'.repeat(result.stars)} 月下吼叫大会<br>${gifts ? '收到：' + gifts : '礼物已经在你的手账里啦'}`, 4.5);
+    } else say('嘿嘿，再大声一点！', totoroHead, 2.2);
+  },
+});
+const fishing = new FishingGame({
+  scene, camera, sound, shadows: lake.shadows, getNight: () => env.night,
+  onOpen() {
+    enterMinigame(); document.body.classList.add('fishing');
+    P.pos.set(FISHING_SPOT.x, FISHING_SPOT.y, FISHING_SPOT.z); P.heading = Math.PI; cat.root.position.copy(P.pos); cat.root.visible = false;
+  },
+  onClose(session) {
+    leaveMinigame(); document.body.classList.remove('fishing');
+    cat.root.visible = true; cam.yaw = 0; cam.pitch = 0.3; cam.target.copy(P.pos);
+    const n = session?.caught.length || 0;
+    if (n) { const best = session.caught.slice().sort((a, b) => b.weight - a.weight)[0]; toast(`今天钓到 ${n} 条～<br>最大的是 ${best.name} ${best.weight} 公斤`, 4); }
+    lake.talk(2); say(n ? '收获不错嘛，常来啊！' : '钓鱼嘛，急不得～', lake.keeperHead, 2.2);
+  },
+});
+async function talkToKeeper() {
+  if (busy() || !started || characterMenuOpen) return;
+  keeperTalking = true; enterMinigame(); lake.talk(30);
+  const j = loadJournal(), first = !j.flags?.metKeeper, dex = FISH.filter((f) => j.fish[f.id]?.count).length;
+  const name = CHARACTER_DEFS[characterId].name;
+  const lines = first
+    ? ['哦？！……吓我一跳。好久没人走到这么北边来了。', '我是这片星湖的湖守，大家都叫我阿渔伯。湖里住着好多古怪的鱼——有的胆小，有的力气大得能把人拖下水。', `${name}，想试试吗？鱼竿借你。按住往后拉竿、松手抛出去；浮漂沉下去再提竿——然后，别跟鱼硬拼。`]
+    : dex >= FISH.length ? ['……你把湖里的家伙都认全了？连湖主都见过了？了不起，了不起。', '那就随便钓钓，吹吹湖风吧。']
+    : [['今天风不错，鱼会往远处游。抛远一点试试。', '天黑以后，湖底那位大胡子老前辈会出来散步哦。', '要是抛竿时力度刚好落在金色那一格……嘿，湖主说不定会看你一眼。'][Math.floor(Math.random() * 3)], `你的鱼类图鉴：${dex} / ${FISH.length}。还差几位没见过呢。`];
+  if (first) { j.flags = { ...(j.flags || {}), metKeeper: true }; saveJournal(j); }
+  const face = KEEPER_FACE, speaker = '湖守 · 阿渔伯', color = '#e07b39', blip = null;
+  let choice = await showDialog({ speaker, color, face, lines, choices: [{ label: '开始钓鱼！', value: 'fish', main: true }, { label: '讨教钓鱼诀窍', value: 'tips' }, { label: '先不了', value: null }] });
+  if (choice === 'tips') choice = await showDialog({ speaker, color, face, lines: [
+    '抛竿：按住时力度条会来回摆，摆到金色那一格松手，抛得最远，也最容易遇到稀有鱼。',
+    '浮漂轻轻点两下，是鱼在试探——千万别动！整个沉下去才提竿，只有不到一秒的时间。',
+    '收线时盯着张力条：太紧会断线，太松鱼会脱钩。鱼往左游，你就把竿往右拉，它很快就没力气了。',
+    '鱼跳出水面时一定要松手！等它翻出白肚皮，就可以放心狂收线啦。'],
+    choices: [{ label: '开始钓鱼！', value: 'fish', main: true }, { label: '下次再来', value: null }] });
+  keeperTalking = false; lake.talk(0);
+  if (choice === 'fish') fishing.start(); else { leaveMinigame(); lake.talk(1.5); say('想钓的时候再来找我～', lake.keeperHead, 2); }
+}
 function meow() {
   if(equipment.open||characterMenuOpen||catbus.riding)return;
   P.idle = 0;
@@ -292,7 +381,8 @@ function meow() {
   say(characterId==='zangzangbao'?['喵~', '喵呜！', '喵？', '咪～'][Math.floor(Math.random()*4)]:'嗨，一起散步吧！',catHead,1.3);
   soot.scatter(P.pos, 6);
   const dT = Math.hypot(P.pos.x - LAYOUT.totoro.x, P.pos.z - LAYOUT.totoro.z);
-  if (dT < 8 && totoro.roarT <= 0) pendingRoar = 0.7;
+  // Totoro only reacts when you are right in front of him (his belly collider is ~1.9m)
+  if (dT < TOTORO_TALK && totoro.roarT <= 0 && totoroCD <= 0) { pendingRoar = 0.7; pendingInvite = true; }
   for (const s of [chu, chibi]) if (Math.hypot(P.pos.x - s.pos.x, P.pos.z - s.pos.z) < 5) { s.target.set(s.pos.x * 2 - P.pos.x, 0, s.pos.z * 2 - P.pos.z); s.fleeing = true; }
 }
 
@@ -401,7 +491,7 @@ let splashCD = 0, lieSaid = false, zzzT = 0;
 const previousPosition=new THREE.Vector3(),actualVelocity=new THREE.Vector3();
 function updateCat(dt) {
   if(catbus.riding){catbus.seat(P.pos);P.heading=catbus.yaw;P.vel.set(0,0,0);P.vy=0;P.grounded=false;cat.root.position.copy(P.pos);cat.root.rotation.y=P.heading;cat.update(dt,{speed:0,running:false,grounded:true,vy:0,idle:10,vel:P.vel});return;}
-  if(!document.getElementById('busDialog').hidden){P.vel.set(0,0,0);cat.update(dt,{speed:0,grounded:true,vy:0,idle:0});return;}
+  if(!document.getElementById('busDialog').hidden||busy()){P.vel.set(0,0,0);if(fishing.open)return;cat.update(dt,{speed:0,grounded:true,vy:0,idle:0});return;}
 
   if(equipment.open){cat.update(dt,{speed:0,running:false,grounded:true,vy:0,idle:0,vel:P.vel,actualVelocity:actualVelocity.set(0,0,0)});return;}
   previousPosition.copy(P.pos);
@@ -444,7 +534,13 @@ function updateCat(dt) {
   P.pos.y += P.vy * dt;
   moveWithCollisions(P.pos,P.vel.x*dt,P.vel.z*dt,CAT_R,colliders);
   const rr = Math.hypot(P.pos.x, P.pos.z);
-  if (rr > LAYOUT.playRadius) { P.pos.x *= LAYOUT.playRadius / rr; P.pos.z *= LAYOUT.playRadius / rr; }
+  const er = edgeRadius(P.pos.x, P.pos.z);
+  if (rr > er) { P.pos.x *= er / rr; P.pos.z *= er / rr; }
+  // The lake is deep: only the pier lets you walk over the water.
+  if (inLakeWater(P.pos.x, P.pos.z) && !onPier(P.pos.x, P.pos.z, -0.12)) {
+    P.pos.x = previousPosition.x; P.pos.z = previousPosition.z; P.vel.x *= -0.2; P.vel.z *= -0.2;
+    if (splashCD < 0) { splashCD = 2.2; sound.waterNotice(); say(characterId === 'zangzangbao' ? '湖水好深…喵不要下去！' : '湖水很深，从栈桥上走吧。', catHead, 1.6); }
+  }
 
   // ground
   const g = groundAt(P.pos.x, P.pos.z, P.pos.y, CAT_R);
@@ -482,6 +578,7 @@ function updateCat(dt) {
 
 // ---------------- camera update ----------------
 function updateCamera(dt) {
+  if (fishing.open) return;
   if (cam.fixed) { camera.position.copy(cam.fixed.pos); camera.lookAt(cam.fixed.look); return; }
   const desired = tmp2.copy(catbus.riding?catbus.root.position:P.pos).add(new THREE.Vector3(0, CHARACTER_DEFS[characterId].cameraHeight, 0));
   cam.target.lerp(desired, Math.min(1, dt * 7));
@@ -525,6 +622,7 @@ function frame() {
   catbus.paused=!started||characterMenuOpen||equipment.open||!$('busDialog').hidden;
   catbus.update(dt,[...roster.cache.values()].filter(a=>!(catbus.riding&&a===cat)).map(a=>a.root.position));
   $('busPrompt').hidden=!started||characterMenuOpen||equipment.open||(!catbus.riding&&P.pos.distanceTo(catbus.root.position)>6);
+  {const near=!started||characterMenuOpen||equipment.open||catbus.riding||busy()?null:nearKeeper()?'keeper':nearTotoro()?'totoro':null,ap=$('actPrompt');ap.hidden=!near;if(near){$('busPrompt').hidden=true;const label=near==='keeper'?'E / 点击 · 和阿渔伯说话（钓鱼）':'E / 点击 · 和龙猫大人打招呼';if(ap.textContent!==label)ap.textContent=label;ap.dataset.target=near;}}
   $('busPrompt').textContent=catbus.riding?'猫车慢游中 · E / 点击 停车下车':'E / 点击 与猫车对话';
   if(catbus.stopping&&catbus.speed<.025&&catbus.riding){const exit=catbus.exitPoint();if(exit){catbus.riding=false;catbus.stopping=false;catbus.wait=8;P.pos.copy(exit);cat.root.position.copy(exit);P.grounded=true;P.idle=0;P.vel.set(0,0,0);toast('到啦，慢慢下车。');}}
 
@@ -534,6 +632,8 @@ function frame() {
   snowTracks.update(dt,env.snow);
   for(const [id,actor]of roster.cache)snowTracks.walk(id,actor.root.position,actor.root.rotation.y,env.snow,id===characterId?P.grounded:true);
   updateCamera(dt);
+  fishing.update(dt);
+  lake.update(dt, P.pos, env.night);
 
   // sun & shadow follow the cat
   sun.position.copy(P.pos).addScaledVector(sunDir, 50);
@@ -544,6 +644,7 @@ function frame() {
   floatUniforms.uTime.value = elapsed;
   floatUniforms.uPix.value = renderer.getPixelRatio() * innerHeight / 900;
 
+  roarContest.update(dt);
   totoro.update(dt, P.pos, env.rain);
   chu.update(dt, P.pos, chibi);
   chibi.update(dt, P.pos, chu);
@@ -559,10 +660,15 @@ function frame() {
       roarGust = 1; sound.roar();
       say('嗷呜————！', totoroHead, 2, true);
       soot.scatter(new THREE.Vector3(LAYOUT.totoro.x, 0, LAYOUT.totoro.z), 40);
+      if (pendingInvite) { pendingInvite = false; inviteT = 2.1; }
     }
   }
+  totoroCD -= dt;
+  // Rainy days: Totoro wants to catch raindrops; otherwise: the moonlit roar contest.
+  if (inviteT > 0) { inviteT -= dt; if (inviteT <= 0 && started && !characterMenuOpen && !equipment.open && !catbus.riding && !busy() && nearTotoro()) { if (env.rain > 0.3) totoroGame.invite(); else roarContest.invite(CHARACTER_DEFS[characterId].name); } }
   if (totoro.roarT > 0.2) roarGust = Math.min(1, roarGust + dt * 3); else roarGust = Math.max(0, roarGust - dt * 1.5);
   grassUniforms.uRoar.value.set(LAYOUT.totoro.x, LAYOUT.totoro.z, roarGust * 1.4, 0);
+  if (roarContest.open && roarContest.gust > 0.05) grassUniforms.uRoar.value.set(P.pos.x, P.pos.z, roarContest.gust * 1.8, 0);
   const toCat = new THREE.Vector3(P.pos.x - LAYOUT.totoro.x, 0, P.pos.z - LAYOUT.totoro.z);
   const dT = toCat.length(); toCat.normalize();
   furEnv.uWind.value.copy(toCat).multiplyScalar(roarGust * 3.5 * Math.exp(-dT * 0.12));
@@ -593,7 +699,7 @@ function frame() {
   if(!sound.customAudio){const label='当前：原创 · '+sound.currentTrack+'（四首轮播）';if($('musicName').textContent!==label)$('musicName').textContent=label;}
 
   // UI
-  const region=Math.hypot(P.pos.x,P.pos.z)>46?'云海崖畔 · 森林到此，远处只有风与云':P.pos.x< -34?'苔岩坡 · 沿着山脊慢慢走':P.pos.x< -20&&P.pos.z>24?'风起草甸 · 留一片开阔的绿':Math.abs(P.pos.x+7)<7&&P.pos.z< -23?'林间谷地 · 风从低处吹来':P.pos.x>18&&P.pos.z>9?'东南 · 稻荷山道与山顶神社':Math.hypot(P.pos.x+6,P.pos.z-21)<12?'树屋小院 · 煤球们的秘密基地':Math.hypot(P.pos.x-8,P.pos.z-5)<8?'水光池塘 · 听一片叶子落水':Math.hypot(P.pos.x-13.2,P.pos.z+8.2)<9?'龙猫车站 · 等一班夏天的车':'风与森林 · 去发现一颗小小橡果';
+  const region=lakeDist(P.pos.x,P.pos.z)<LAYOUT.lake.r+14?'星湖 · 阿渔伯的钓场，湖底住着奇怪的鱼':Math.hypot(P.pos.x,P.pos.z)>46?'云海崖畔 · 森林到此，远处只有风与云':P.pos.x< -34?'苔岩坡 · 沿着山脊慢慢走':P.pos.x< -20&&P.pos.z>24?'风起草甸 · 留一片开阔的绿':Math.abs(P.pos.x+7)<7&&P.pos.z< -23?'林间谷地 · 风从低处吹来':P.pos.x>18&&P.pos.z>9?'东南 · 稻荷山道与山顶神社':Math.hypot(P.pos.x+6,P.pos.z-21)<12?'树屋小院 · 煤球们的秘密基地':Math.hypot(P.pos.x-8,P.pos.z-5)<8?'水光池塘 · 听一片叶子落水':Math.hypot(P.pos.x-13.2,P.pos.z+8.2)<9?'龙猫车站 · 等一班夏天的车':'风与森林 · 去发现一颗小小橡果';
   $('place').textContent='✦ '+region;
   $('bKick1').disabled=$('bKick2').disabled=!!cat.actionQueueFull||!P.grounded||switching||characterMenuOpen;
   if (toastTimer > 0) { toastTimer -= dt; if (toastTimer <= 0) $('toast').classList.remove('show'); }
@@ -619,5 +725,5 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   snow.setPixelRatio?.(renderer.getPixelRatio());
 });
-window.__game = { P, cam, get catbus(){return catbus;}, sunShafts,detailStream, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment };
+window.__game = { fishing, roarContest, lake, talkToKeeper, P, cam, get catbus(){return catbus;}, sunShafts,detailStream, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment };
 $('startBtn').disabled=false; $('startBtn').textContent='走进森林 →'; $('loadStatus').textContent='';finishStartup();document.body.classList.remove('is-loading');

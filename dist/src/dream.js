@@ -4,7 +4,7 @@ import {coatTree} from './forest-weather.js';
 import {BUILDING_COLLISIONS} from './building-collisions.js';
 import {openPavilion} from './pavilion.js';
 import * as THREE from 'three';
-import {heightAt,LAYOUT,roadDist,trailDist} from './terrain.js';
+import {heightAt,LAYOUT,roadDist,trailDist,edgeRadius} from './terrain.js';
 import {colliders,createTorii,nearStructure} from './world.js';
 import {rng} from './toon.js';
 import {rootFootprint,rootPlacement,terrainSlope} from './tree-grounding.js';
@@ -50,6 +50,8 @@ export async function loadDreamWorld(scene,low,{progressive=false}={}){
  // The original shrine keeps its location and gets a full-canopy model tree.
  const great=tree('broadleaf-tree',LAYOUT.camphor.x,LAYOUT.camphor.z,1.65,.3);great.name='大樟树';colliders[colliders.length-1].r=1.7;
  for(const [x,z,size] of [[18,12,.8],[28,17,.9],[18,23,.95],[28,30,.85],[17,35,1.05],[30,32,.85]])tree('fantasy-tree',x,z,size,.4+x);
+ // v20: a ring of trees around the new lake, leaving the pier side open towards the island
+ {const lk=LAYOUT.lake,R=rng(404);let n=0;for(let i=0;i<90&&n<(low?12:22);i++){const a=R()*Math.PI*2,off=Math.atan2(Math.sin(a-Math.PI/2),Math.cos(a-Math.PI/2));if(Math.abs(off)<.8)continue;const d=lk.r+4.5+R()*10,x=lk.x+Math.cos(a)*d,z=lk.z+Math.sin(a)*d;if(Math.hypot(x,z)>edgeRadius(x,z)-5.5||nearStructure(x,z,2)||trailDist(x,z)<3)continue;const t=tree(n%3===0?'broadleaf-tree':n%5===0?'fantasy-tree':'forest-tree',x,z,.8+R()*.45,R()*6);if(t){t.name='星湖畔的树';n++;}}}
  // Broken woodland patches inside the world, with open meadow/valley sight lines.
  const random=rng(732),planted=scene.children.filter(o=>o.userData.treeAsset).map(o=>o.position.clone());let count=0;
  for(let attempt=0;attempt<900&&count<(low?36:52);attempt++){
