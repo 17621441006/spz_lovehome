@@ -4,6 +4,7 @@ import {moveWithCollisions} from './collision.js';
 import {planStartup,finishStartup,detailStream} from './asset-stream.js';
 import {canopySnow,SunShafts} from './forest-weather.js';
 import {addEnchantedGrove,updateCrystals} from './enchanted-grove.js';
+import {addFantasyEcology,FANTASY_ASSET_FILES} from './fantasy-ecology.js';
 import {CatBus} from './catbus.js';
 import {cameraBasis,removeReverseInertia} from './locomotion.js';
 import {ForestLife} from './forest-life.js';
@@ -63,7 +64,7 @@ const worldFiles=['forest-tree','forest-tree-lod','broadleaf-tree','broadleaf-tr
 const actorFile=initialCharacter==='zangzangbao'?'assets/cat-rig.glb':'assets/characters/'+initialCharacter+'.glb';
 let savedOutfits={};try{savedOutfits=JSON.parse(localStorage.getItem('zzb-outfits-v12')||'{}');}catch{}
 const savedOutfit=savedOutfits[initialCharacter],outfitFile=savedOutfit&&savedOutfit!=='original'?'assets/characters/'+savedOutfit+'.glb':null;
-planStartup([...worldFiles,actorFile,...(outfitFile?[outfitFile]:[])]);
+planStartup([...worldFiles,...FANTASY_ASSET_FILES,actorFile,...(outfitFile?[outfitFile]:[])]);
 const characterReady=roster.select(initialCharacter);
 // ---------------- world ----------------
 scene.add(buildTerrain());
@@ -71,6 +72,7 @@ buildWorld(scene);
 const lake = buildLake(scene, colliders);
 await loadDreamWorld(scene, LOW,{progressive:true});
 await addEnchantedGrove(scene,LOW,{progressive:true});
+const fantasyEcology = await addFantasyEcology(scene);
 scene.add(buildGrass(LOW ? 15000 : 38000, (x, z) => nearStructure(x, z, 0)));
 scene.add(buildFlowers(LOW ? 250 : 520, (x, z) => nearStructure(x, z, 0.5)));
 const rain = new Rain(scene);
@@ -379,7 +381,7 @@ function meow() {
   cat.doMeow();
   if(characterId==='zangzangbao')sound.meow();
   say(characterId==='zangzangbao'?['喵~', '喵呜！', '喵？', '咪～'][Math.floor(Math.random()*4)]:'嗨，一起散步吧！',catHead,1.3);
-  soot.scatter(P.pos, 6);
+  soot.scatter(P.pos, 6); fantasyEcology.onGreet(P.pos, say, sound);
   const dT = Math.hypot(P.pos.x - LAYOUT.totoro.x, P.pos.z - LAYOUT.totoro.z);
   // Totoro only reacts when you are right in front of him (his belly collider is ~1.9m)
   if (dT < TOTORO_TALK && totoro.roarT <= 0 && totoroCD <= 0) { pendingRoar = 0.7; pendingInvite = true; }
@@ -617,7 +619,7 @@ function frame() {
   elapsed += dt;
   updateEnv(dt);
   updateCrystals(elapsed,env.night);
-  updateElderGlade(elapsed,env.night);
+  updateElderGlade(elapsed,env.night); fantasyEcology.update(dt,elapsed,P.pos,env,roarGust,say,sound);
   if(started&&!characterMenuOpen&&!equipment.open)detailStream.update(dt,P.pos);
   catbus.paused=!started||characterMenuOpen||equipment.open||!$('busDialog').hidden;
   catbus.update(dt,[...roster.cache.values()].filter(a=>!(catbus.riding&&a===cat)).map(a=>a.root.position));
@@ -725,5 +727,5 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   snow.setPixelRatio?.(renderer.getPixelRatio());
 });
-window.__game = { fishing, roarContest, lake, talkToKeeper, P, cam, get catbus(){return catbus;}, sunShafts,detailStream, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment };
+window.__game = { fishing, roarContest, lake, talkToKeeper, P, cam, get catbus(){return catbus;}, sunShafts,detailStream, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment, fantasyEcology };
 $('startBtn').disabled=false; $('startBtn').textContent='走进森林 →'; $('loadStatus').textContent='';finishStartup();document.body.classList.remove('is-loading');
