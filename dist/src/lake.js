@@ -149,11 +149,11 @@ function buildKeeper() {
     const hand = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), skin); hand.position.y = -0.64; arm.add(hand);
     arm.rotation.z = s * 0.18; arms.push(arm);
   }
-  // A shoulder-carried pole stays outside the head and follows the torso,
-  // independently of the greeting arm. The tip extends behind his right side.
-  const rodA=new THREE.Vector3(-.43,1.28,.65),rodB=new THREE.Vector3(-.43,1.88,-2.05),rodDir=rodB.clone().sub(rodA);
-  const rod=new THREE.Mesh(new THREE.CylinderGeometry(.012,.03,rodDir.length(),8),woodDark());rod.name='阿渔伯 · 肩扛鱼竿';rod.position.copy(rodA).add(rodB).multiplyScalar(.5);rod.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),rodDir.normalize());body.add(rod);
-  arms[1].rotation.x=-1.45;arms[1].rotation.z=-.1;
+  // The rod is planted on the ground; the left palm naturally rests around it.
+  arms[0].rotation.set(0,0,-.22);arms[1].rotation.set(0,0,.12);
+  const hand=new THREE.Vector3(0,-.64,0).applyEuler(arms[0].rotation).add(arms[0].position);
+  const rod=new THREE.Mesh(new THREE.CylinderGeometry(.012,.028,2.5,10),woodDark());rod.name='阿渔伯 · 落地扶竿';rod.position.set(hand.x,1.25,hand.z+.015);root.add(rod);
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(hand.x,2.49,hand.z+.015),new THREE.Vector3(hand.x-.10,2.25,hand.z+.02),new THREE.Vector3(hand.x-.10,.10,hand.z+.02)]),new THREE.LineBasicMaterial({color:'#cbbd9a'}));root.add(line);
   root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   return { root, body, head, eyes, arms };
 }
@@ -198,7 +198,7 @@ export function buildLake(scene, colliders) {
       k.body.scale.y = 1 + Math.sin(t * 1.6) * 0.012;
       talkT = Math.max(0, talkT - dt);
       k.head.rotation.x = talkT > 0 ? Math.sin(t * 9) * 0.08 : Math.sin(t * 0.7) * 0.04;
-      k.arms[0].rotation.x = talkT > 0 ? -0.4 + Math.sin(t * 6) * 0.3 : Math.sin(t * 1.6) * 0.05;
+      k.arms[1].rotation.x = talkT > 0 ? -0.4 + Math.sin(t * 6) * 0.3 : Math.sin(t * 1.6) * 0.05;
       const jitter = Math.sin(t * 13.7) * Math.sin(t * 3.1) > 0.92 ? 0.02 : 0; // the famous nervous eyes
       for (const [i, e] of k.eyes.entries()) e.position.x = (i ? 0.13 : -0.13) + jitter;
       // fish shadows wander lazily inside the shoreline (unless the fishing game borrowed one)

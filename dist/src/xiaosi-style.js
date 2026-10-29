@@ -6,6 +6,19 @@ import {fitXiaosiReference} from './xiaosi-reference.js';
 export function dressXiaosi(actor){
  fitXiaosiReference(actor.model);
  let body;actor.model.traverse(o=>{if(o.isSkinnedMesh&&!body)body=o;});
+ // Extend the original navy fabric over the exposed upper-arm atlas region.
+ // Keep original sleeve silhouette and skinning; no extra cylinders or broad sleeves.
+ actor.model.traverse(o=>{if(!o.isSkinnedMesh)return;const old=o.material;o.material=old.clone();const mat=o.material;const slot=actor.materials.indexOf(old);if(slot>=0)actor.materials[slot]=mat;else actor.materials.push(mat);
+  mat.onBeforeCompile=shader=>{shader.vertexShader='varying vec3 vShirtBind;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvShirtBind=position;');
+   shader.fragmentShader='varying vec3 vShirtBind;\n'+shader.fragmentShader;
+   shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+   float armBand=step(.81,vShirtBind.y)*(1.0-step(1.055,vShirtBind.y))*step(.10,abs(vShirtBind.x))*(1.0-step(.255,abs(vShirtBind.x)));
+   float skinTone=step(diffuseColor.g*1.09,diffuseColor.r)*step(diffuseColor.b*1.18,diffuseColor.r)*step(.12,diffuseColor.g);
+   float clothRepair=armBand*skinTone;
+   diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.006,.019,.067),clothRepair);`);
+   shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance*=1.0-clothRepair;');
+  };mat.customProgramCacheKey=()=> 'xiaosi-original-sleeve-v25';
+ });
  actor.root.updateMatrixWorld(true);
  const makeMat=(color,metalness=0,roughness=.6)=>new THREE.MeshStandardMaterial({color,metalness,roughness});
  const gold=makeMat('#edb850',.72,.25),silver=makeMat('#e1e9ed',.8,.18),ivory=makeMat('#fff0d6',0,.85),hair=makeMat('#563727',0,.88);
@@ -31,19 +44,6 @@ export function dressXiaosi(actor){
  const panelGeo=new THREE.BufferGeometry();panelGeo.setAttribute('position',new THREE.Float32BufferAttribute(panelP,3));panelGeo.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(panelJ,4));panelGeo.setAttribute('skinWeight',new THREE.Float32BufferAttribute(panelW,4));panelGeo.setIndex(panelI);panelGeo.computeVertexNormals();
  const cloth=makeMat('#102653',0,.92);cloth.side=THREE.DoubleSide;
  const panel=new THREE.SkinnedMesh(panelGeo,cloth);panel.name='连续闭合的海军蓝衣身衬层';panel.bind(body.skeleton,body.bindMatrix);panel.frustumCulled=false;panel.castShadow=true;body.parent.add(panel);
-
- // Closed soft sleeves fitted around the upper arms. Their full circumference
- // follows the arm bone, including the underside exposed during the back swing.
- for(const side of ['Left','Right']){
-  const upper=actor.bones[side+'UpperArm'],lower=actor.bones[side+'ForeArm'];
-  const start=body.worldToLocal(upper.getWorldPosition(new THREE.Vector3())),end=body.worldToLocal(lower.getWorldPosition(new THREE.Vector3()));
-  const axis=end.clone().sub(start).normalize(),u=new THREE.Vector3(0,0,1).cross(axis).normalize(),v=axis.clone().cross(u).normalize();
-  const p=[],ix=[],j=[],w=[],rings=10,segments=28;
-  for(let r=0;r<=rings;r++){const t=r/rings,center=start.clone().lerp(end,-.16+t*.91),radius=.060+.012*Math.sin(t*Math.PI);
-   for(let c=0;c<=segments;c++){const a=c/segments*Math.PI*2,pt=center.clone().addScaledVector(u,Math.cos(a)*radius).addScaledVector(v,Math.sin(a)*radius);p.push(...pt.toArray());j.push(boneIndex(side+'UpperArm'),0,0,0);w.push(1,0,0,0);if(r<rings&&c<segments){const n=r*(segments+1)+c;ix.push(n,n+1,n+segments+1,n+1,n+segments+2,n+segments+1);}}
-  }
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(j,4));g.setAttribute('skinWeight',new THREE.Float32BufferAttribute(w,4));g.setIndex(ix);g.computeVertexNormals();const sleeve=new THREE.SkinnedMesh(g,cloth);sleeve.name=side+' · 完整袖筒';sleeve.bind(body.skeleton,body.bindMatrix);sleeve.frustumCulled=false;sleeve.castShadow=true;body.parent.add(sleeve);
- }
 
  const halfUp=group('小司 · 齐肩半扎丸子头');
  // The reference has a compact bun high at the back, not a hanging ponytail.

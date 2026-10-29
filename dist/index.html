@@ -208,6 +208,12 @@ body:not(.is-loading) #title .card,.load-error #title .card{position:absolute;in
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }</script>
 <style>
 #actions{display:block}#actionMenu{position:absolute;right:0;bottom:48px;width:172px;padding:9px;background:#f8f4e3f5;border:1px solid #cfcea8;border-radius:14px;box-shadow:0 8px 30px #193d3030}#actionMenu button{display:block;width:100%;margin:5px 0;text-align:left}#actionMenu[hidden]{display:none}#restoreUI{display:none;position:fixed;left:18px;bottom:18px;z-index:60;border:1px solid #d1d5b4;background:#f6f2e5ce;color:#52694e;border-radius:20px;padding:9px 15px;cursor:pointer}.hidden-ui #restoreUI{display:block}#settingsPanel p{font-size:12px;line-height:1.8}
+</style><style>
+#settingsPanel{max-height:80dvh;overflow:auto}#settingsPanel #musicPanel{position:static;width:auto;background:transparent;box-shadow:none;padding:0;font-size:13px}#fullscreenToggle{font-size:24px!important;padding:6px 15px!important}#sprintStatus{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);color:#fff7df;background:#244737aa;padding:7px 16px;border-radius:24px;font-size:12px;pointer-events:none}.hidden-ui #sprintStatus{display:none}
+</style><style>
+#coverCharacters{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}.cover-character{pointer-events:visiblePainted;cursor:pointer;outline:none}.cover-character path{fill:#ffe6a000;stroke:#ffe4a0;stroke-width:1.5;stroke-opacity:0;transition:fill .3s,stroke-opacity .3s;filter:url(#characterGlow)}.cover-character.selected path{fill:#ffe6a008;stroke-opacity:.23}.cover-character:hover path,.cover-character:focus-visible path{fill:#ffe6a02c;stroke-opacity:.95;stroke-width:2.5}.cover-character text{font:16px 'KaiTi','STKaiti',serif;letter-spacing:5px;text-anchor:middle;fill:#fff2ce;opacity:0;paint-order:stroke;stroke:#173935;stroke-width:3px;transition:opacity .25s}.cover-character:hover text,.cover-character:focus-visible text{opacity:1}
+#title .card{pointer-events:none}#title .title-block{pointer-events:none}#title .pick-block{display:none!important}#characterInvite{position:absolute;z-index:3;bottom:3.5vh;left:0;right:0;margin:0;text-align:center;pointer-events:none;font:clamp(20px,2.2vw,31px) 'KaiTi','STKaiti',serif;letter-spacing:.32em;color:#fff1cf;text-shadow:0 2px 6px #102f2c,0 0 16px #f7cd7c88;animation:inviteBreath 3.6s ease-in-out infinite}#characterInvite:before,#characterInvite:after{content:'✧';font-size:.6em;display:inline-block;margin:0 20px;vertical-align:middle;color:#ebc886}.is-loading #coverCharacters,.is-loading #characterInvite{display:none}.load-error #title .pick-block{display:flex!important;pointer-events:auto}.load-error #title .pick-ribbon{display:block}.load-error #title .character-picker{display:none}.load-error #coverCharacters,.load-error #characterInvite{display:none}.load-error #startBtn{pointer-events:auto}
+@keyframes inviteBreath{50%{opacity:.65;transform:translateY(-3px);text-shadow:0 2px 6px #102f2c,0 0 22px #f7cd7caa}}@media(max-aspect-ratio:4/5){#loadingWallpaper{object-fit:contain!important}#characterInvite{bottom:14vh}.title-block{top:5vh!important}}@media(prefers-reduced-motion:reduce){#characterInvite{animation:none}}
 </style></head>
 <body class="is-loading">
   <div id="title">
@@ -221,6 +227,13 @@ body:not(.is-loading) #title .card,.load-error #title .card{position:absolute;in
       play();
     })();
     </script>
+    <svg id="coverCharacters" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid slice" aria-label="点击画面中的角色进入游戏">
+      <defs><filter id="characterGlow" x="-35%" y="-35%" width="170%" height="170%"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      <g class="cover-character selected" role="button" tabindex="0" data-character="xiaosi" aria-label="选择小司，进入游戏" aria-pressed="true"><path d="M815 427 Q807 401 832 374 Q831 350 863 344 Q905 330 933 343 Q957 354 952 390 Q971 417 951 440 L966 498 Q982 507 994 550 L993 568 Q1019 578 1008 599 Q986 615 949 614 L906 612 Q886 601 901 584 Q849 568 832 543 Q817 528 821 503 L804 498 Q796 466 815 427Z"/><text x="907" y="640">小司</text></g>
+      <g class="cover-character" role="button" tabindex="0" data-character="xiaoyong" aria-label="选择小涌，进入游戏" aria-pressed="false"><path d="M286 442 Q280 422 300 408 L344 380 Q349 365 359 355 Q347 328 370 313 Q403 293 432 307 Q461 299 468 327 Q479 351 459 373 L482 411 L491 458 Q512 452 515 479 L503 521 Q497 548 466 558 L401 574 Q375 578 369 591 Q343 605 304 597 Q290 584 301 565 L273 568 Q261 542 275 489Z"/><text x="395" y="625">小涌</text></g>
+      <g class="cover-character" role="button" tabindex="0" data-character="zangzangbao" aria-label="选择脏脏包，进入游戏" aria-pressed="false"><path d="M576 215 Q577 196 592 181 L591 168 L612 170 Q630 158 647 161 Q649 144 671 149 Q698 147 710 172 L727 185 Q745 184 756 191 Q780 187 790 204 Q811 215 806 240 Q804 261 775 261 Q743 263 719 245 L687 244 L677 253 L665 250 L655 240 Q628 243 607 232 L589 232 Q574 232 576 215Z"/><text x="690" y="284">脏脏包</text></g>
+    </svg>
+    <p id="characterInvite" aria-live="polite">请选择你的角色</p>
     <div class="fireflies" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="card">
       <header class="title-block">
@@ -268,7 +281,7 @@ body:not(.is-loading) #title .card,.load-error #title .card{position:absolute;in
     <button id="bEquipment" aria-haspopup="dialog" aria-expanded="false">♧ 装备</button>
     <button id="bWeather" aria-label="选择天气" aria-haspopup="dialog" aria-expanded="false" title="天气">☀ 天气</button>
     <button id="bHelp" aria-label="操作说明" aria-haspopup="dialog" aria-expanded="false" title="操作说明">ⓘ 操作说明</button>
-    <button id="bMusic" aria-label="打开配乐设置">♫ 配乐</button><button id="bSound" class="on" aria-label="切换全部声音">🔊</button>
+    <button id="fullscreenToggle" aria-label="全屏 · F11" title="全屏 · F11" aria-pressed="false">⛶</button>
     <button id="bSettings" aria-label="游戏设置">⚙ 设置</button><button id="bHide" aria-label="纯净视野，按 Esc 恢复">👁</button>
   </div>
 
@@ -281,20 +294,20 @@ body:not(.is-loading) #title .card,.load-error #title .card{position:absolute;in
       </div><footer class="equipment-footer">一把清风，陪你慢慢走。<span class="desktop-key"> B 打开 / Esc 收起</span></footer>
     </section>
   </div>
-  <aside id="musicPanel" hidden>
-    <div class="panel-title">森林里的声音 <button id="musicClose" aria-label="关闭配乐设置">×</button></div>
-    <p id="musicName">当前：原创 · 林间慢板</p>
-    <label for="musicVolume">配乐音量</label><input id="musicVolume" type="range" min="0" max="100" value="45" aria-label="配乐音量"/>
-    <label class="file-button" for="musicFile">选择本地配乐</label><input type="file" id="musicFile" accept="audio/*" hidden/>
-    <button id="forestMusic">恢复森林配乐 · 四首轮播</button><button id="nextMusic" class="file-button">下一首 →</button><small>可选择你有权使用的《龙猫》原声音频。<br>仅在你的浏览器播放，不会上传。</small>
-  </aside>
+
 
   <aside id="weatherPanel" class="forest-popover" hidden role="dialog" aria-labelledby="weatherTitle"><header><strong id="weatherTitle">森林的天气</strong><button id="weatherClose" aria-label="收起天气">×</button></header><button id="bAutoWeather" type="button" aria-pressed="true">✓ 天气自然轮换</button><div class="weather-grid"><button id="bSun" type="button">☀<span>林间晴光</span></button><button id="bCloud" type="button">☁<span>柔光白昼</span></button><button id="bRain" type="button">☂<span>轻柔细雨</span></button><button id="bSnow" type="button">❄<span>林间落雪</span></button><button id="bNight" type="button">☾<span>星月夜晚</span></button></div></aside>
   <aside id="helpPanel" class="forest-popover" hidden role="dialog" aria-labelledby="helpTitle"><header><strong id="helpTitle">操作说明</strong><button id="helpClose" aria-label="收起操作说明">×</button></header><div class="help-keys"><kbd>W A S D</kbd><span>移动 · Shift 切换跑/走；双击 W 后按住奔跑</span><kbd>空格</kbd><span>跳跃，并恢复走路</span><kbd>E</kbd><span>打招呼 / 与猫车对话</span><kbd>J / K</kbd><span>角色动作</span><kbd>B / C</kbd><span>装备 / 坐下</span><kbd>鼠标</kbd><span>点击画面后转动视角，滚轮缩放；Esc 释放</span><kbd>R / V / N</kbd><span>细雨 / 下雪 / 夜晚</span></div><p id="hint"></p><p id="place"></p></aside>
   <div id="actions"><button id="bActions" aria-expanded="false">☷ 动作</button><div id="actionMenu" hidden><button id="bSit">坐下 / 起身</button><button id="bKick1" title="J：踢腿"><kbd>J</kbd> 踢腿</button><button id="bKick2" title="K：花式踢腿"><kbd>K</kbd> 花式踢</button></div></div>
-  <aside id="settingsPanel" class="forest-popover" hidden role="dialog" aria-label="游戏设置"><header><strong>游戏设置</strong><button id="settingsClose" aria-label="关闭游戏设置">×</button></header><button id="fullscreenToggle" class="file-button" aria-pressed="false">进入全屏</button><p>全屏使用整个屏幕。按 Esc 退出全屏，也可恢复隐藏的界面。</p></aside>
+  <aside id="settingsPanel" class="forest-popover" hidden role="dialog" aria-label="游戏设置"><header><strong>游戏设置</strong><button id="settingsClose" aria-label="关闭游戏设置">×</button></header>  <section id="musicPanel">
+    <div class="panel-title">森林里的声音</div>
+    <p id="musicName">当前：原创 · 林间慢板</p>
+    <label for="musicVolume">配乐音量</label><input id="musicVolume" type="range" min="0" max="100" value="45" aria-label="配乐音量"/>
+    <label class="file-button" for="musicFile">选择本地配乐</label><input type="file" id="musicFile" accept="audio/*" hidden/>
+    <button id="forestMusic">恢复森林配乐 · 四首轮播</button><button id="nextMusic" class="file-button">下一首 →</button><small>可选择你有权使用的《龙猫》原声音频。<br>仅在你的浏览器播放，不会上传。</small>
+  </section><button id="bSound" class="file-button on" aria-label="切换全部声音">🔊 全部声音已开启</button><p>F11 全屏 / 退出全屏 · Esc 释放鼠标</p></aside>
   <button id="restoreUI" aria-label="退出纯净视野">退出纯净视野 · Esc</button>
-  <div id="toast"></div>
+  <div id="toast"></div><div id="sprintStatus" hidden>奔跑中 · Shift 切换走路</div>
   <div id="touch">
     <div id="stick"><div id="knob"></div></div>
     <button class="tbtn" id="tJump">跳！</button>

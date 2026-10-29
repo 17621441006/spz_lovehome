@@ -1,5 +1,7 @@
+import {WaterRecovery,hazardousWater} from './water-recovery.js';
+import {setupTitleSelection} from './title-selection.js';
 import {WeatherCycle} from './weather-cycle.js';
-import {SprintControl} from './sprint-control.js';
+import {SprintControl,movementKey} from './sprint-control.js';
 import {setupDisplayControls} from './display-controls.js';
 import {IslandOcean} from './ocean.js';
 import {TreeOcclusion} from './tree-occlusion.js';
@@ -61,7 +63,7 @@ sun.shadow.normalBias = 0.03;
 scene.add(sun, sun.target);
 
 const roster=new CharacterRoster(scene);
-let savedCharacter='xiaosi';try{savedCharacter=localStorage.getItem('zzb-forest-character')||savedCharacter;}catch{}
+let savedCharacter='xiaosi';
 const requestedCharacter=params.get('character')||savedCharacter;
 const initialCharacter=CHARACTER_DEFS[requestedCharacter]?requestedCharacter:'xiaosi';
 const worldFiles=['forest-tree','forest-tree-lod','broadleaf-tree','broadleaf-tree-lod','fantasy-tree','fantasy-tree-lod','treehouse','shrine-lod','pagoda-lod','temple-lod','japanese-house','sakura-lod','crystal-lod'].map(n=>'assets/'+n+'.glb');
@@ -114,7 +116,7 @@ function loadExtras(){if(extrasStarted)return;extrasStarted=true;
  // Decode optional assets after entry, one at a time; detail streaming starts last.
  Promise.resolve().then(()=>addElderTree(scene)).then(tree=>{elderSanctuary=tree.sanctuary;}).catch(console.error).then(()=>CatBus.create(scene,colliders)).then(bus=>{catbus=bus;}).catch(console.error).then(()=>life.populate()).catch(console.error).finally(()=>{detailStream.enabled=true;});
 }
-const CAT_R = 0.42;
+const CAT_R = 0.42;const waterRecovery=new WaterRecovery(colliders);
 
 // Totoro is a big soft trampoline
 const totoroCollider={
@@ -143,7 +145,7 @@ const keys = {};const sprint=new SprintControl();
 let started = false;
 addEventListener('keydown', (e) => {
   if (!started || busy() || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
-  const k = e.key.toLowerCase();
+  const k = movementKey(e);
   if(!$('busDialog').hidden){if(k==='escape')$('busDialog').hidden=true;return;}
   if(catbus.riding&&k!=='e'&&k!=='escape')return;
   if(k==='b'&&!e.repeat){e.preventDefault();if(!characterMenuOpen&&!switching&&P.grounded)equipment.setOpen(!equipment.open);return;}
@@ -161,7 +163,7 @@ addEventListener('keydown', (e) => {
   if (k === 'x') toggleSit();
   if (k === 'h') toggleUI();
 });
-addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; keys[e.code] = false; });
+addEventListener('keyup', (e) => { keys[movementKey(e)] = false; keys[e.code] = false; });
 function clearMovement(){sprint.reset();for(const k in keys)keys[k]=false;touch.x=touch.y=0;P.vel.set(0,0,0);P.jumpBuf=0;dragId=null;}
 addEventListener('blur',clearMovement);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)clearMovement();});
@@ -242,8 +244,6 @@ setupDisplayControls({document,listen:addEventListener,clearMovement,toast});
 $('bActions').onclick=()=>{const open=$('actionMenu').hidden;$('actionMenu').hidden=!open;$('bActions').setAttribute('aria-expanded',String(open));if(open){document.exitPointerLock?.();clearMovement();}};
 $('bSit').onclick=()=>{toggleSit();$('actionMenu').hidden=true;};
 function toggleSit(){if(totoro.occupied){useTotoroBed();return;}if(!started||characterMenuOpen||switching||equipment.open||catbus.riding||!P.grounded||cat.isPerforming)return;canopySeated=!canopySeated;P.idle=0;P.vel.set(0,0,0);}
-$('bMusic').onclick=()=>{if(document.pointerLockElement)document.exitPointerLock();$('musicPanel').hidden=!$('musicPanel').hidden;};
-$('musicClose').onclick=()=>{$('musicPanel').hidden=true;};
 $('musicVolume').oninput=e=>sound.setMusicVolume(Number(e.target.value)/100);
 $('musicFile').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{await sound.loadMusic(file);$('musicName').textContent='当前：'+file.name;}catch{$('musicName').textContent='无法播放这个格式，请选择 MP3、WAV 或 OGG。';}};
 $('nextMusic').onclick=()=>{sound.init();sound.nextTrack();$('musicName').textContent='当前：原创 · '+sound.currentTrack;};
@@ -252,8 +252,8 @@ $('bKick1').onclick=()=>performAction(0);
 $('bKick2').onclick=()=>performAction(1);
 $('bSnow').onclick=toggleSnow;syncWeatherUI();
 $('bRain').onclick = toggleRain; $('bNight').onclick = toggleNight; $('bHide').onclick = toggleUI;
-$('bSound').onclick = () => { sound.setEnabled(!sound.enabled); $('bSound').classList.toggle('on', sound.enabled); $('bSound').textContent = sound.enabled ? '🔊' : '🔇'; };
-const equipment=new EquipmentPanel({renderer,getActor:()=>cat,getCharacter:()=>({id:characterId,name:CHARACTER_DEFS[characterId].name}),getAcorns:()=>({count:Number($('acornCount').textContent),total:acorns.total}),onToggle:()=>{P.vel.set(0,0,0);P.jumpBuf=0;P.idle=0;touch.x=touch.y=0;for(const k in keys)keys[k]=false;$('musicPanel').hidden=true;}});
+$('bSound').onclick = () => { sound.setEnabled(!sound.enabled); $('bSound').classList.toggle('on', sound.enabled); $('bSound').textContent = sound.enabled ? '🔊 全部声音已开启' : '🔇 全部声音已关闭'; };
+const equipment=new EquipmentPanel({renderer,getActor:()=>cat,getCharacter:()=>({id:characterId,name:CHARACTER_DEFS[characterId].name}),getAcorns:()=>({count:Number($('acornCount').textContent),total:acorns.total}),onToggle:()=>{P.vel.set(0,0,0);P.jumpBuf=0;P.idle=0;touch.x=touch.y=0;for(const k in keys)keys[k]=false;$('settingsPanel').hidden=true;}});
 $('bEquipment').onclick=()=>{if(totoro.occupied)useTotoroBed();if(catbus.riding){toast('先让猫车停稳下车，再打开行囊吧');return;}if(started&&!characterMenuOpen&&!switching){if(!P.grounded){toast('先落到地面，再打开行囊吧');return;}equipment.setOpen(!equipment.open);}};
 function syncCharacterUI(){
  equipment.apply();equipment.sync();
@@ -267,12 +267,12 @@ function syncCharacterUI(){
 }
 async function selectCharacter(id){
  const ticket=++selectionSerial;switching=true;$('startBtn').disabled=true;$('loadStatus').textContent='加载角色…';
- try{const selected=await roster.select(id);if(ticket!==selectionSerial||!selected)return;cat=roster.active;characterId=roster.id;canopySeated=false;P.pos.copy(cat.root.position);P.heading=cat.root.rotation.y;P.vel.set(0,0,0);P.vy=0;P.grounded=true;P.idle=0;P.jumpBuf=0;cam.target.copy(P.pos);syncCharacterUI();try{localStorage.setItem('zzb-forest-character',characterId);}catch{}$('loadStatus').textContent='';}
- catch(error){if(ticket===selectionSerial)$('loadStatus').textContent='这个角色暂时没能加载，请再点一次。当前角色仍可游玩。';console.error(error);}
+ try{const selected=await roster.select(id);if(ticket!==selectionSerial||!selected)return;cat=roster.active;characterId=roster.id;if(!started)cat.root.position.copy(P.pos);canopySeated=false;P.pos.copy(cat.root.position);P.heading=cat.root.rotation.y;P.vel.set(0,0,0);P.vy=0;P.grounded=true;P.idle=0;P.jumpBuf=0;cam.target.copy(P.pos);syncCharacterUI();try{localStorage.setItem('zzb-forest-character',characterId);}catch{}$('loadStatus').textContent='';return true;}
+ catch(error){if(ticket===selectionSerial)$('loadStatus').textContent='这个角色暂时没能加载，请再点一次。当前角色仍可游玩。';console.error(error);return false;}
  finally{if(ticket===selectionSerial){switching=false;$('startBtn').disabled=false;$('startBtn').textContent=started?'继续散步 →':'走进森林 →';}}
 }
-for(const b of document.querySelectorAll('[data-character]'))b.onclick=()=>selectCharacter(b.dataset.character);
-$('bCharacter').onclick=()=>{if(totoro.occupied)useTotoroBed();if(catbus.riding){toast('先下车，再换一位伙伴吧');return;}if(document.pointerLockElement)document.exitPointerLock();characterMenuOpen=true;P.vel.set(0,0,0);P.jumpBuf=0;for(const k in keys)keys[k]=false;touch.x=touch.y=0;P.heading=cam.yaw;$('title').classList.remove('hide');$('loadingWallpaper').play?.()?.catch?.(()=>{});$('startBtn').textContent='继续散步 →';$('startBtn').focus();};
+setupTitleSelection({document,selectCharacter,startGame,isReady:()=>!switching&&!document.body.classList.contains('is-loading')});
+$('bCharacter').onclick=()=>{if(totoro.occupied)useTotoroBed();if(catbus.riding){toast('先下车，再换一位伙伴吧');return;}if(document.pointerLockElement)document.exitPointerLock();characterMenuOpen=true;P.vel.set(0,0,0);P.jumpBuf=0;for(const k in keys)keys[k]=false;touch.x=touch.y=0;P.heading=cam.yaw;$('title').classList.remove('hide');$('loadingWallpaper').play?.()?.catch?.(()=>{});$('startBtn').textContent='继续散步 →';document.querySelector('.cover-character.selected')?.focus?.();};
 syncCharacterUI();
 
 
@@ -536,6 +536,7 @@ function updateCat(dt) {
   const mag = (cat.isPerforming||characterMenuOpen||switching)?0:Math.min(1,dir.length());
   if(cat.isPerforming||characterMenuOpen||switching)dir.set(0,0,0);
   const running = sprint.update(dt,iy>0,keys['shift']||keys['ShiftLeft'],mag>.05)||touch.run||params.get('walk')==='run';
+  $('sprintStatus').hidden=!running||mag<.05;
   if (mag > 0.05) {
     canopySeated=false;
     dir.normalize();
@@ -568,13 +569,12 @@ function updateCat(dt) {
   const rr = Math.hypot(P.pos.x, P.pos.z);
   const er = edgeRadius(P.pos.x, P.pos.z);
   if (rr > er) { P.pos.x *= er / rr; P.pos.z *= er / rr; }
-  // The lake is deep: only the pier lets you walk over the water.
-  if (inLakeWater(P.pos.x, P.pos.z) && !onPier(P.pos.x, P.pos.z, -0.12)) {
-    P.pos.x = previousPosition.x; P.pos.z = previousPosition.z; P.vel.x *= -0.2; P.vel.z *= -0.2;
-    if (splashCD < 0) { splashCD = 2.2; sound.waterNotice(); say(characterId === 'zangzangbao' ? '湖水好深…喵不要下去！' : '湖水很深，从栈桥上走吧。', catHead, 1.6); }
-  } else if (P.pos.y<heightAt(P.pos.x,P.pos.z)+2&&inElderRiver(P.pos.x, P.pos.z) && !onElderBridge(P.pos.x, P.pos.z, 0.12)) {
-    P.pos.x = previousPosition.x; P.pos.z = previousPosition.z; P.vel.x *= -0.2; P.vel.z *= -0.2;
-    if (splashCD < 0) { splashCD = 2.2; sound.waterNotice(); say(characterId === 'zangzangbao' ? '溪水好宽…喵要走树桥过去！' : '溪水环绕着古树，从东边的树桥走过去吧。', catHead, 1.6); }
+  // A horizontal rollback is only safe when the previous point was on dry ground.
+  // Falling vertically into a stream needs a real dry landing point, not the same wet point.
+  if(hazardousWater(P.pos.x,P.pos.z)&&P.pos.y<Math.max(heightAt(P.pos.x,P.pos.z)+1,LAYOUT.lake.level+.3)){
+   if(!hazardousWater(previousPosition.x,previousPosition.z)&&P.grounded){P.pos.x=previousPosition.x;P.pos.z=previousPosition.z;P.vel.set(0,0,0);}
+   else{P.pos.copy(waterRecovery.destination(P.pos));P.vel.set(0,0,0);P.vy=0;P.grounded=true;P.jumpBuf=0;P.idle=0;canopySeated=false;sprint.reset();cam.target.copy(P.pos).y+=CHARACTER_DEFS[characterId].cameraHeight;previousPosition.copy(P.pos);toast('轻轻回到岸边了 · 可以继续散步');}
+   if(splashCD<0){splashCD=2.2;sound.waterNotice();}
   }
 
   // ground
@@ -599,6 +599,7 @@ function updateCat(dt) {
     say(characterId==='zangzangbao'?'爪爪碰到水啦～':'水凉凉的，慢一点走。',catHead,1.6);
   }
 
+  waterRecovery.remember(P.pos,P.grounded);
   if(characterMenuOpen)P.idle=0;
   cat.root.position.copy(P.pos);
   cat.root.rotation.y = P.heading;
@@ -767,5 +768,5 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   snow.setPixelRatio?.(renderer.getPixelRatio());
 });
-window.__game = { fishing, roarContest, lake, talkToKeeper, P, cam, get catbus(){return catbus;},get elderSanctuary(){return elderSanctuary;}, sunShafts,ocean,detailStream,weatherCycle,sprint,useTotoroBed, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment, fantasyEcology };
+window.__game = { fishing, roarContest, lake, talkToKeeper, P, cam, get catbus(){return catbus;},get elderSanctuary(){return elderSanctuary;}, sunShafts,ocean,detailStream,weatherCycle,sprint,waterRecovery,useTotoroBed, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment, fantasyEcology };
 $('startBtn').disabled=false; $('startBtn').textContent='走进森林 →'; $('loadStatus').textContent='';finishStartup();document.body.classList.remove('is-loading');
