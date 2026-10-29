@@ -22,5 +22,5 @@ for(const mode of ['idle','walk','run','sit','dance']){
  }
 }
 assert(Math.max(...opacities)>.8&&Math.min(...opacities)<.01,'Diamond must pulse visibly');
-const html=fs.readFileSync('dist/index.html','utf8');assert(html.includes('<title>司涌脏·千寻</title>'));assert(html.indexOf('data-character="xiaosi"')<html.indexOf('data-character="xiaoyong"'));assert(html.includes('forest-title.ttf'));assert(html.includes('loading-lite.mp4?v=20'));
+const html=fs.readFileSync('dist/index.html','utf8');assert(html.includes('<title>司涌脏·千寻</title>'));assert(html.indexOf('data-character="xiaosi"')<html.indexOf('data-character="xiaoyong"'));assert(html.includes('forest-title.ttf'));assert(html.includes('loading-lite.mp4?v=22'));
 console.log({C_hair:'PASS',accessoryBoneBinding:'PASS in idle/walk/run/sit/dance',diamondPulse:[Math.min(...opacities),Math.max(...opacities)],speeds:'PASS exact ratios',firstCharacter:'小司',title:'司涌脏·千寻'});

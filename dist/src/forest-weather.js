@@ -10,8 +10,21 @@ export function coatTree(root){root.traverse(o=>{if(!o.isMesh||!o.geometry.attri
  diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.96,.98,1.0),snowCover);
  `);};m.customProgramCacheKey=()=>oldKey+'-canopy-snow-v13';m.needsUpdate=true;}});return root;}
 export class SunShafts{
- constructor(scene,low=false){this.group=new THREE.Group();this.group.name='林隙阳光';this.uniforms={uAmount:{value:0},uTime:{value:0}};const mat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:this.uniforms,vertexShader:`varying vec2 vUv;varying vec3 vNormal,vView;void main(){vUv=uv;vec4 p=modelViewMatrix*vec4(position,1.);vView=-p.xyz;vNormal=normalize(normalMatrix*normal);gl_Position=projectionMatrix*p;}`,fragmentShader:`uniform float uAmount,uTime;varying vec2 vUv;varying vec3 vNormal,vView;void main(){float edge=pow(abs(dot(normalize(vNormal),normalize(vView))),1.4);float ends=smoothstep(0.,.14,vUv.y)*(1.-smoothstep(.84,1.,vUv.y));float shimmer=.92+.08*sin(uTime*.35+vUv.y*7.);float a=edge*ends*.095*uAmount*shimmer;gl_FragColor=vec4(1.,.91,.65,a);#include <colorspace_fragment>\n}`.replace('#include','\n#include')});
- const anchors=[[-7,2],[-12,-8],[-25,-13],[4,-25],[9,-18],[-18,8],[3,13],[16,19],[25,27],[-25,24],[-2,-16],[28,-5]];const axis=new THREE.Vector3(.55,.62,.35).normalize();
- for(const [i,[x,z]]of anchors.entries()){if(low&&i%2)continue;const length=8+(i%4),beam=new THREE.Mesh(new THREE.CylinderGeometry(.12,.55+(i%3)*.22,length,12,1,true),mat);beam.position.set(x,heightAt(x,z)+.1,z).addScaledVector(axis,length/2);beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),axis);beam.name='斜照树隙光束';this.group.add(beam);}scene.add(this.group);this.group.visible=false;}
- update(t,sun,night,rain,snow){this.uniforms.uTime.value=t;this.uniforms.uAmount.value=sun*(1-night)*(1-rain)*(1-snow);this.group.visible=this.uniforms.uAmount.value>.005;}
+ constructor(scene,low=false){
+  this.group=new THREE.Group();this.group.name='树冠下的林隙阳光';this.anchors=[];this.uniforms={uAmount:{value:0},uTime:{value:0},uCamera:{value:new THREE.Vector3()}};
+  const mat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:this.uniforms,
+   vertexShader:`varying vec2 vUv;varying vec3 vNormal,vView,vWorld;void main(){vUv=uv;vec4 p=modelViewMatrix*vec4(position,1.);vWorld=(modelMatrix*vec4(position,1.)).xyz;vView=-p.xyz;vNormal=normalize(normalMatrix*normal);gl_Position=projectionMatrix*p;}`,
+   fragmentShader:`uniform float uAmount,uTime;uniform vec3 uCamera;varying vec2 vUv;varying vec3 vNormal,vView,vWorld;void main(){float edge=pow(abs(dot(normalize(vNormal),normalize(vView))),2.);float ends=smoothstep(0.,.22,vUv.y)*(1.-smoothstep(.72,1.,vUv.y));float nearby=1.-smoothstep(12.,28.,distance(vWorld,uCamera));float shimmer=.95+.05*sin(uTime*.24+vUv.y*5.);gl_FragColor=vec4(1.,.94,.77,edge*ends*.042*uAmount*shimmer*nearby);
+    #include <colorspace_fragment>
+   }`});
+  const axis=new THREE.Vector3(.55,.62,.35).normalize(),trees=scene.children.filter(o=>o.userData.treeAsset||o.userData.groveKind==='sakura');scene.updateMatrixWorld(true);
+  for(const tree of trees){if(this.anchors.length>=(low?6:12))break;const box=new THREE.Box3().setFromObject(tree),center=box.getCenter(new THREE.Vector3()),h=box.max.y-box.min.y;if(h<4||h>18||this.anchors.some(a=>a.tree.position.distanceTo(tree.position)<5))continue;
+   for(const offset of [[-1.5,-.9],[-2,.6],[.8,-1.6]]){const x=center.x+offset[0],z=center.z+offset[1],origin=new THREE.Vector3(x,heightAt(x,z)+.15,z),ray=new THREE.Raycaster(origin,axis,.5,12),sides=[];tree.traverse(o=>{if(!o.isMesh)return;for(const m of Array.isArray(o.material)?o.material:[o.material]){sides.push([m,m.side]);m.side=THREE.DoubleSide;}});const hit=ray.intersectObject(tree,true).find(hit=>hit.distance>2&&hit.point.y>box.min.y+h*.35);for(const [m,side]of sides)m.side=side;if(!hit)continue;
+    // Both ends are inside the forest: the top must meet a real leaf triangle.
+    const top=hit.point.clone().addScaledVector(axis,-.08),length=Math.min(5.5,hit.distance-.18),bottom=top.clone().addScaledVector(axis,-length),beam=new THREE.Mesh(new THREE.CylinderGeometry(.055,.36,length,10,1,true),mat);beam.position.copy(top).add(bottom).multiplyScalar(.5);beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),axis);beam.name='从真实树隙透下的柔光';beam.userData.canopyTop=top.clone();this.group.add(beam);this.anchors.push({tree,top,bottom,beam});break;
+   }
+  }
+  scene.add(this.group);this.group.visible=false;
+ }
+ update(t,sun,night,rain,snow,camera){this.uniforms.uTime.value=t;this.uniforms.uAmount.value=sun*(1-night)*(1-rain)*(1-snow);if(camera)this.uniforms.uCamera.value.copy(camera);this.group.visible=this.uniforms.uAmount.value>.005;for(const a of this.anchors)a.beam.visible=!camera||camera.y<a.top.y+.5&&camera.distanceTo(a.beam.position)<30;}
 }

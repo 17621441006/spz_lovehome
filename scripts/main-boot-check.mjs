@@ -23,3 +23,6 @@ const sanctuary=__game.elderSanctuary;__game.P.pos.copy(sanctuary.portals[0]);__
 for(let i=0;i<100;i++)draw();assert(Math.abs(__game.P.pos.y-sanctuary.deckY)<.02,'Main loop must deliver the player onto the deck');
 __game.P.pos.copy(sanctuary.portals[1]);for(let i=0;i<100;i++)draw();assert(__game.P.pos.y<sanctuary.ground+.2,'Return portal must restore ground exploration');
 console.log({lazyWorldEntry:'PASS',catbusRoutes:__game.catbus.routes.length,mainLoopPortalRoundTrip:'PASS',framesAfterEntry:220});
+
+__game.P.pos.copy(sanctuary.arrivals[1]);__game.P.grounded=true;draw();assert.equal(el('actPrompt').dataset.target,'canopy');el('actPrompt').onclick();for(let i=0;i<100;i++)draw();assert(__game.P.pos.distanceTo(sanctuary.canopy.seat)<.08,'Leaf seating must work through the actual UI action');assert(__game.P.idle>=9&&__game.P.idle<12,'Sit stays seated without falling asleep');
+__game.P.pos.copy(sanctuary.portals[2]);for(let i=0;i<100;i++)draw();assert(Math.abs(__game.P.pos.y-sanctuary.deckY)<.05,'Canopy return must land on deck');console.log({crownInteraction:'PASS',stableSitting:'PASS',canopyReturn:'PASS'});

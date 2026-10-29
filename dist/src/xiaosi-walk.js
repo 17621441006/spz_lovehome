@@ -17,8 +17,8 @@ export function updateXiaosiWalk(actor,dt,active){
   solveLimb(actor.bones[side+'UpperLeg'],actor.bones[side+'LowerLeg'],foot,target,actor.modelPoint(sign*.075,.43,.45));
   const rest=actor.model.getWorldQuaternion(new THREE.Quaternion()).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),pitch)).multiply(actor.footRest[side]);
   setWorldQuaternion(foot,foot.getWorldQuaternion(new THREE.Quaternion()).slerp(rest,blend));
-  // A soft opposing arm swing, with elbows slightly bent and hands close to the body.
-  const hand=actor.bones[side+'Hand'],swing=Math.cos(angle+offset*Math.PI*2),handTarget=hand.getWorldPosition(new THREE.Vector3()).lerp(actor.modelPoint(sign*.197,.655+.012*Math.sin(angle*2),-.025-.10*swing),blend*.7);
-  solveLimb(actor.bones[side+'UpperArm'],actor.bones[side+'ForeArm'],hand,handTarget,actor.modelPoint(sign*.27,.80,.08));
+  // Preserve the authored upper-body track. Hand-target IK twists the shoulder
+  // skin and folds the sleeve when its pole crosses the bind-pose elbow plane.
+
  }
 }

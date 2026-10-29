@@ -1,3 +1,4 @@
+import {IslandOcean} from './ocean.js';
 import {TreeOcclusion} from './tree-occlusion.js';
 import {addElderTree,updateElderGlade,inElderRiver,onElderBridge} from './elder-tree.js';
 import {moveWithCollisions} from './collision.js';
@@ -91,6 +92,8 @@ const sound = new Sound();
 let catbus=CatBus.pending(),elderSanctuary=null,portalTrip=null;
 const portalFade=document.createElement('div');portalFade.className='portal-fade';portalFade.setAttribute('aria-hidden','true');document.body.appendChild(portalFade);
 const sunShafts=new SunShafts(scene,LOW);
+const ocean=new IslandOcean(scene,LOW);
+let canopySeated=false;
 const treeOcclusion=new TreeOcclusion(scene);
 
 // ---------------- selectable protagonists ----------------
@@ -143,7 +146,7 @@ addEventListener('keydown', (e) => {
   if(e.repeat && [' ','e','j','k','c','x'].includes(k))return;
   keys[k] = true; keys[e.code] = true;
   if (k === ' ') { P.jumpBuf = 0.15; e.preventDefault(); }
-  if (k === 'e') {if(!catbus.riding&&nearKeeper())talkToKeeper();else if(catbus.riding||P.pos.distanceTo(catbus.root.position)<6&&!nearTotoro())openBusDialog();else meow();}
+  if (k === 'e') {if(nearCanopy())useCanopy();else if(!catbus.riding&&nearKeeper())talkToKeeper();else if(catbus.riding||P.pos.distanceTo(catbus.root.position)<6&&!nearTotoro())openBusDialog();else meow();}
   if(k==='j')performAction(0);
   if(k==='k')performAction(1);
   if (k === 'r') toggleRain();
@@ -206,7 +209,7 @@ const $ = (id) => document.getElementById(id);
 $('acornTotal').textContent = acorns.total;
 function openBusDialog(){if(!started||characterMenuOpen||equipment.open)return;if(document.pointerLockElement)document.exitPointerLock();clearMovement();$('busDialog').hidden=false;$('busMessage').textContent=catbus.riding?'想在这里歇一歇吗？我会慢慢停稳，再让你下车。':'喵～要搭一程吗？我们慢慢逛森林，不赶时间。';$('busClose').focus();$('busBoard').hidden=catbus.riding;$('busExit').hidden=!catbus.riding;}
 $('busPrompt').onclick=openBusDialog;
-$('actPrompt').onclick=()=>{if($('actPrompt').dataset.target==='keeper')talkToKeeper();else meow();};
+$('actPrompt').onclick=()=>{if($('actPrompt').dataset.target==='canopy')useCanopy();else if($('actPrompt').dataset.target==='keeper')talkToKeeper();else meow();};
 $('busClose').onclick=()=>{$('busDialog').hidden=true;};
 $('busBoard').onclick=()=>{if(catbus.speed>.05){$('busMessage').textContent='等我停稳一下，再点「上车慢游」就好。';return;}catbus.riding=true;catbus.stopping=false;catbus.wait=1;cat.model.rotation.y=0;cat.oneShot=null;P.jumpBuf=0;clearMovement();$('busDialog').hidden=true;};
 $('busExit').onclick=()=>{catbus.stopping=true;$('busDialog').hidden=true;toast('猫车正在缓缓停车…');};
@@ -253,7 +256,7 @@ function syncCharacterUI(){
 }
 async function selectCharacter(id){
  const ticket=++selectionSerial;switching=true;$('startBtn').disabled=true;$('loadStatus').textContent='加载角色…';
- try{const selected=await roster.select(id);if(ticket!==selectionSerial||!selected)return;cat=roster.active;characterId=roster.id;P.pos.copy(cat.root.position);P.heading=cat.root.rotation.y;P.vel.set(0,0,0);P.vy=0;P.grounded=true;P.idle=0;P.jumpBuf=0;cam.target.copy(P.pos);syncCharacterUI();try{localStorage.setItem('zzb-forest-character',characterId);}catch{}$('loadStatus').textContent='';}
+ try{const selected=await roster.select(id);if(ticket!==selectionSerial||!selected)return;cat=roster.active;characterId=roster.id;canopySeated=false;P.pos.copy(cat.root.position);P.heading=cat.root.rotation.y;P.vel.set(0,0,0);P.vy=0;P.grounded=true;P.idle=0;P.jumpBuf=0;cam.target.copy(P.pos);syncCharacterUI();try{localStorage.setItem('zzb-forest-character',characterId);}catch{}$('loadStatus').textContent='';}
  catch(error){if(ticket===selectionSerial)$('loadStatus').textContent='这个角色暂时没能加载，请再点一次。当前角色仍可游玩。';console.error(error);}
  finally{if(ticket===selectionSerial){switching=false;$('startBtn').disabled=false;$('startBtn').textContent=started?'继续散步 →':'走进森林 →';}}
 }
@@ -291,8 +294,11 @@ if (params.has('auto')) startGame();
 if(params.has('equipment'))equipment.setOpen(true);
 if (params.has('hideui')) toggleUI();
 
+function nearCanopy(){if(!elderSanctuary||!P.grounded)return false;const s=elderSanctuary;return Math.abs(P.pos.y-s.deckY)<.4&&Math.hypot(P.pos.x-LAYOUT.elder.x,P.pos.z-LAYOUT.elder.z)<6.4||P.pos.y>s.canopy.minY&&Number.isFinite(s.canopy.sample(P.pos.x,P.pos.z));}
+function useCanopy(){if(!started||characterMenuOpen||equipment.open||busy()||portalTrip)return;const s=elderSanctuary;if(P.pos.y<s.canopy.minY){portalTrip={position:s.canopy.seat.clone(),upper:true,canopy:true,time:0,moved:false};P.vel.set(0,0,0);P.vy=0;portalFade.classList.add('active');}else{canopySeated=!canopySeated;P.idle=canopySeated?10:0;P.vel.set(0,0,0);toast(canopySeated?'坐在叶子上吹吹风 · 方向键即可起身':'起来走走吧');}}
+
 // ---------------- actions ----------------
-function performAction(index){if(catbus.riding)return;if(!started||characterMenuOpen||switching||equipment.open||!P.grounded)return;const action=CHARACTER_DEFS[characterId].actions[index][0];if(cat.triggerAction(action)){P.idle=0;P.vel.multiplyScalar(.08);}}
+function performAction(index){if(catbus.riding)return;if(!started||characterMenuOpen||switching||equipment.open||!P.grounded)return;const action=CHARACTER_DEFS[characterId].actions[index][0];if(cat.triggerAction(action)){canopySeated=false;P.idle=0;P.vel.multiplyScalar(.08);}}
 
 let roarGust = 0, pendingRoar = -1, pendingInvite = false, inviteT = -1;
 // 龙猫大人的小游戏：吼完一声后邀请玩家玩《咚！伞上的雨滴》
@@ -475,7 +481,7 @@ function updateEnv(dt) {
   grassUniforms.uFogColor.value.copy(scene.fog.color); grassUniforms.uFogNear.value = scene.fog.near; grassUniforms.uFogFar.value = scene.fog.far;
   grassUniforms.uRain.value = r;
   const cl = lerpNum('cloud', n, r);
-  cloudMat.color.setScalar(cl); cloudMat.emissive.setRGB(0.49 * cl, 0.58 * cl, 0.7 * cl);
+  cloudMat.color.setRGB(cl*(1-n*.24),cl*(1-n*.12),cl);
   const glow = Math.max(n, r * 0.4);
   for (const m of windowMats) m.emissiveIntensity = glow * 1.1;
   lampLight.intensity = glow * 30;
@@ -484,7 +490,7 @@ function updateEnv(dt) {
   waterMat.color.copy(scene.fog.color).lerp(_c1.set('#4f93a8'), 0.6);
   for(const m of cat.materials||[]) m.emissiveIntensity=(m.userData.forestGlow??.10)*(1-n*.55);
   updateDream(elapsed, n, r, P.pos);
-  setTerrainSnow(env.snow);canopySnow.value=env.snow;sunShafts.update(elapsed,env.sun,n,r,env.snow);
+  setTerrainSnow(env.snow);canopySnow.value=env.snow;sunShafts.update(elapsed,env.sun,n,r,env.snow,camera.position);
   sound.setRain(r*(1-env.snow));
 }
 
@@ -513,6 +519,7 @@ function updateCat(dt) {
   if(cat.isPerforming||characterMenuOpen||switching)dir.set(0,0,0);
   const running = keys['shift'] || keys['ShiftLeft'] || touch.run;
   if (mag > 0.05) {
+    canopySeated=false;
     dir.normalize();
     removeReverseInertia(P.vel,dir);
     P.idle = 0;
@@ -520,7 +527,8 @@ function updateCat(dt) {
     let d = tgt - P.heading; d = Math.atan2(Math.sin(d), Math.cos(d));
     P.heading += d * Math.min(1, dt * 10);
   } else if (P.grounded) P.idle += dt;
-  if (P.jumpBuf > 0) P.idle = 0;
+  if (P.jumpBuf > 0) {P.idle = 0;canopySeated=false;}
+  if(canopySeated)P.idle=10;
   const def=CHARACTER_DEFS[characterId];const speed = (running ? def.run : def.walk) * mag;
   const acc = P.grounded ? 10 : 2.5;
   P.vel.x += (dir.x * speed - P.vel.x) * Math.min(1, dt * acc);
@@ -536,6 +544,9 @@ function updateCat(dt) {
   P.vy -= 24 * dt;
   P.pos.y += P.vy * dt;
   moveWithCollisions(P.pos,P.vel.x*dt,P.vel.z*dt,CAT_R,colliders);
+  // A dense leaf crown is walkable; stop at a steep lip instead of falling
+  // through a gap between separate clusters of the original tree mesh.
+  if(elderSanctuary&&previousPosition.y>elderSanctuary.canopy.minY&&P.grounded){const h=elderSanctuary.canopy.sample(P.pos.x,P.pos.z);if(!Number.isFinite(h)||Math.abs(h-previousPosition.y)>.32){P.pos.x=previousPosition.x;P.pos.z=previousPosition.z;}}
   const rr = Math.hypot(P.pos.x, P.pos.z);
   const er = edgeRadius(P.pos.x, P.pos.z);
   if (rr > er) { P.pos.x *= er / rr; P.pos.z *= er / rr; }
@@ -543,7 +554,7 @@ function updateCat(dt) {
   if (inLakeWater(P.pos.x, P.pos.z) && !onPier(P.pos.x, P.pos.z, -0.12)) {
     P.pos.x = previousPosition.x; P.pos.z = previousPosition.z; P.vel.x *= -0.2; P.vel.z *= -0.2;
     if (splashCD < 0) { splashCD = 2.2; sound.waterNotice(); say(characterId === 'zangzangbao' ? '湖水好深…喵不要下去！' : '湖水很深，从栈桥上走吧。', catHead, 1.6); }
-  } else if (inElderRiver(P.pos.x, P.pos.z) && !onElderBridge(P.pos.x, P.pos.z, 0.12)) {
+  } else if (P.pos.y<heightAt(P.pos.x,P.pos.z)+2&&inElderRiver(P.pos.x, P.pos.z) && !onElderBridge(P.pos.x, P.pos.z, 0.12)) {
     P.pos.x = previousPosition.x; P.pos.z = previousPosition.z; P.vel.x *= -0.2; P.vel.z *= -0.2;
     if (splashCD < 0) { splashCD = 2.2; sound.waterNotice(); say(characterId === 'zangzangbao' ? '溪水好宽…喵要走树桥过去！' : '溪水环绕着古树，从东边的树桥走过去吧。', catHead, 1.6); }
   }
@@ -628,7 +639,7 @@ function frame() {
   catbus.paused=!started||characterMenuOpen||equipment.open||!$('busDialog').hidden;
   catbus.update(dt,[...roster.cache.values()].filter(a=>!(catbus.riding&&a===cat)).map(a=>a.root.position).concat([chu.group.position,chibi.group.position]));
   $('busPrompt').hidden=!started||characterMenuOpen||equipment.open||(!catbus.riding&&P.pos.distanceTo(catbus.root.position)>6);
-  {const near=!started||characterMenuOpen||equipment.open||catbus.riding||busy()?null:nearKeeper()?'keeper':nearTotoro()?'totoro':null,ap=$('actPrompt');ap.hidden=!near;if(near){$('busPrompt').hidden=true;const label=near==='keeper'?'E / 点击 · 和阿渔伯说话（钓鱼）':'E / 点击 · 和龙猫大人打招呼';if(ap.textContent!==label)ap.textContent=label;ap.dataset.target=near;}}
+  {const near=!started||characterMenuOpen||equipment.open||catbus.riding||busy()?null:nearCanopy()?'canopy':nearKeeper()?'keeper':nearTotoro()?'totoro':null,ap=$('actPrompt');ap.hidden=!near;if(near){$('busPrompt').hidden=true;const label=near==='canopy'?(P.pos.y<elderSanctuary.canopy.minY?'E / 点击 · 去树冠观景':canopySeated?'E / 点击 · 起身':'E / 点击 · 坐在树叶上观景'):near==='keeper'?'E / 点击 · 和阿渔伯说话（钓鱼）':'E / 点击 · 和龙猫大人打招呼';if(ap.textContent!==label)ap.textContent=label;ap.dataset.target=near;}}
   $('busPrompt').textContent=catbus.riding?((catbus.wait>0?'停靠 · '+catbus.stationName:catbus.blocked?'正在礼让行人':catbus.currentRoute?.name||'村庄漫游')+' · E / 点击 下车'):'E / 点击 与猫车对话';
   if(catbus.stopping&&catbus.speed<.025&&catbus.riding){const exit=catbus.exitPoint();if(exit){catbus.riding=false;catbus.stopping=false;catbus.wait=8;P.pos.copy(exit);cat.root.position.copy(exit);P.grounded=true;P.idle=0;P.vel.set(0,0,0);toast('到啦，慢慢下车。');}}
 
@@ -636,12 +647,13 @@ function frame() {
   if(!portalTrip)updateCat(dt);
   const destination=elderSanctuary?.update(dt,P.pos,started&&!characterMenuOpen&&!equipment.open&&!catbus.riding&&!portalTrip&&!busy()&&P.grounded);
   if(destination){portalTrip={...destination,time:0,moved:false};P.vel.set(0,0,0);P.vy=0;portalFade.classList.add('active');}
-  if(portalTrip){portalTrip.time+=dt;if(portalTrip.time>=.28&&!portalTrip.moved){P.pos.copy(portalTrip.position);P.vel.set(0,0,0);P.vy=0;P.grounded=true;P.idle=0;cat.root.position.copy(P.pos);cam.target.copy(P.pos).y+=CHARACTER_DEFS[characterId].cameraHeight;portalTrip.moved=true;toast(portalTrip.upper?'云冠观景台 · 沿着圆台看看村庄吧':'回到古树的怀抱',3);}if(portalTrip.time>=.42)portalFade.classList.remove('active');if(portalTrip.time>=.85)portalTrip=null;}
+  if(portalTrip){portalTrip.time+=dt;if(portalTrip.time>=.28&&!portalTrip.moved){P.pos.copy(portalTrip.position);P.vel.set(0,0,0);P.vy=0;P.grounded=true;P.idle=portalTrip.canopy?10:0;canopySeated=!!portalTrip.canopy;cat.root.position.copy(P.pos);cam.target.copy(P.pos).y+=CHARACTER_DEFS[characterId].cameraHeight;portalTrip.moved=true;toast(portalTrip.canopy?'树叶软软的 · 光环可以回到圆台':portalTrip.upper?'云冠观景台 · 按 E 去树冠坐坐':'回到古树的怀抱',3);}if(portalTrip.time>=.42)portalFade.classList.remove('active');if(portalTrip.time>=.85)portalTrip=null;}
 
   if(started&&!characterMenuOpen&&!equipment.open)life.update(dt,P.pos);
   snowTracks.update(dt,env.snow);
   for(const [id,actor]of roster.cache)snowTracks.walk(id,actor.root.position,actor.root.rotation.y,env.snow,id===characterId?P.grounded:true);
   updateCamera(dt);
+  ocean.update(elapsed,camera,env.night,env.rain,skyUniforms.uHorizon.value);
   fishing.update(dt);
   lake.update(dt, P.pos, env.night);
 
@@ -735,5 +747,5 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   snow.setPixelRatio?.(renderer.getPixelRatio());
 });
-window.__game = { fishing, roarContest, lake, talkToKeeper, P, cam, get catbus(){return catbus;},get elderSanctuary(){return elderSanctuary;}, sunShafts,detailStream, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment, fantasyEcology };
+window.__game = { fishing, roarContest, lake, talkToKeeper, P, cam, get catbus(){return catbus;},get elderSanctuary(){return elderSanctuary;}, sunShafts,ocean,detailStream, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment, fantasyEcology };
 $('startBtn').disabled=false; $('startBtn').textContent='走进森林 →'; $('loadStatus').textContent='';finishStartup();document.body.classList.remove('is-loading');

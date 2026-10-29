@@ -209,7 +209,7 @@ body:not(.is-loading) #title .card,.load-error #title .card{position:absolute;in
 </head>
 <body class="is-loading">
   <div id="title">
-    <video id="loadingWallpaper" autoplay muted loop playsinline preload="metadata" poster="assets/loading-poster.webp?v=20" aria-hidden="true"><source src="assets/loading-lite.mp4?v=20" type="video/mp4"></video><script>
+    <video id="loadingWallpaper" autoplay muted loop playsinline preload="metadata" poster="assets/loading-poster.webp?v=20" aria-hidden="true"><source src="assets/loading-lite.mp4?v=22" type="video/mp4"></video><script>
     // Start independently of the 3D module download; retry on mobile's first gesture.
     (()=>{const v=document.getElementById('loadingWallpaper');
       const play=()=>{if(document.hidden||document.getElementById('title').classList.contains('hide')||matchMedia('(prefers-reduced-motion: reduce)').matches)return;v.muted=true;v.play().catch(()=>{});};

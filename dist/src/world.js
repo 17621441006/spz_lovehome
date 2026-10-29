@@ -11,6 +11,7 @@ export const lilyPads = [];
 export function groundAt(x, z, y = Infinity, catR = 0) {
   let g = heightAt(x, z);
   for (const c of colliders) {
+    if(c.type==='heightfield'){const top=c.sample(x,z);if(top<=y+.35&&top>g)g=top;continue;}
     if (c.top > y + 0.35) continue;
     if (c.top <= g) continue;
     if(c.type==='annulus'){const d=Math.hypot(x-c.x,z-c.z);if(d>=c.inner&&d<=c.outer)g=c.top;}
@@ -114,31 +115,15 @@ function buildSky() {
   return m;
 }
 
-export const cloudMat = new THREE.MeshStandardMaterial({color:'#ffffff',vertexColors:true,roughness:1,emissive:'#7d93b3',emissiveIntensity:.05,fog:false});
-cloudMat.onBeforeCompile=shader=>{
- shader.vertexShader='varying vec3 vCloudPaper;\n'+shader.vertexShader;
- shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvCloudPaper=position;');
- shader.fragmentShader='varying vec3 vCloudPaper;\n'+shader.fragmentShader;
- shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
- float pigment=sin(vCloudPaper.x*2.2+sin(vCloudPaper.y*3.1))*sin(vCloudPaper.z*3.7+vCloudPaper.y)*.010;
- diffuseColor.rgb+=pigment;`);
-};
-cloudMat.customProgramCacheKey=()=> 'painted-cumulus-v21';
+// Four genuinely painted silhouettes share one compressed alpha atlas.
+const cloudAtlas=new THREE.TextureLoader().load('assets/clouds-painted.webp');cloudAtlas.colorSpace=THREE.SRGBColorSpace;
+export const cloudMat = new THREE.MeshBasicMaterial({map:cloudAtlas,color:'#ffffff',transparent:true,alphaTest:.025,depthWrite:false,fog:false,toneMapped:false});
 function buildClouds(){
- const g=new THREE.Group();g.name='晴空 · 大小不同的积云与薄云';const R=rng(21099),kinds=['tower','small','ribbon','small','cumulus','ribbon'];
- for(let c=0;c<24;c++){
-  const kind=kinds[c%kinds.length],a=c/24*Math.PI*2+(R()-.5)*.17,dist=235+R()*100,cy=kind==='ribbon'?32+R()*22:kind==='tower'?53+R()*33:40+R()*65;
-  const w=kind==='ribbon'?35+R()*30:kind==='tower'?26+R()*22:kind==='small'?10+R()*16:24+R()*20;
-  const n=kind==='small'?4+Math.floor(R()*3):7+Math.floor(R()*6),parts=[];
-  for(let i=0;i<n;i++){
-   const t=i/(n-1)-.5,envelope=Math.pow(Math.max(.05,1-4*t*t),.55),r=(kind==='small'?3.2:kind==='ribbon'?4.4:7.4)*( .55+R()*.7)*(.55+envelope*.65),h=kind==='ribbon'?.33:kind==='tower'?(1+envelope*.6):.7+R()*.4;
-   const sg=new THREE.IcosahedronGeometry(1,3);sg.deleteAttribute('uv');wobble(sg,.045,c*29+i,4.2);sg.scale(r,r*h,r*.68);
-   sg.translate(t*w,(kind==='tower'?envelope*7:envelope*1.3)+(R()-.5)*1.4,(R()-.5)*r*.65);
-   const pos=sg.attributes.position;for(let j=0;j<pos.count;j++)if(pos.getY(j)<0)pos.setY(j,pos.getY(j)*.16);sg.computeVertexNormals();parts.push({geo:sg,color:'#ffffff'});
-  }
-  const geo=mergeGeos(parts);geo.computeBoundingBox();const pos=geo.attributes.position,col=geo.attributes.color,norm=geo.attributes.normal,box=geo.boundingBox;
-  for(let i=0;i<pos.count;i++){const y=(pos.getY(i)-box.min.y)/(box.max.y-box.min.y),shade=THREE.MathUtils.smoothstep(y,.02,.60),up=THREE.MathUtils.clamp(norm.getY(i)*.3+.7,0,1),color=new THREE.Color('#9eb5ce').lerp(new THREE.Color('#fffbea'),Math.min(1,shade*.84+up*.16));col.setXYZ(i,color.r,color.g,color.b);}
-  const m=new THREE.Mesh(geo,cloudMat);m.name=kind==='tower'?'高耸积云':kind==='ribbon'?'远处的薄云带':kind==='small'?'零散小白云':'蓬松积云';m.position.set(Math.cos(a)*dist,cy,Math.sin(a)*dist);m.lookAt(0,cy,0);m.userData.cloudKind=kind;g.add(m);
+ const g=new THREE.Group();g.name='手绘晴空 · 积云与薄云';const R=rng(22109);
+ const rects=[[72,124,565,610],[693,276,1226,567],[57,812,571,1133],[681,847,1206,1119]],kinds=['tower','bank','small','wisp'];
+ for(let i=0;i<22;i++){const type=[0,2,1,3,2,1,3][i%7],rect=rects[type].map((v,k)=>v+(k<2?-6:6)),a=i/22*Math.PI*2+(R()-.5)*.18,dist=265+R()*65,w=(type===0?65:type===1?85:type===2?27:100)*(.8+R()*.4),h=w*(rect[3]-rect[1])/(rect[2]-rect[0]);
+  const geo=new THREE.PlaneGeometry(w,h),uv=geo.attributes.uv;for(let j=0;j<uv.count;j++)uv.setXY(j,THREE.MathUtils.lerp(rect[0]/1254,rect[2]/1254,uv.getX(j)),THREE.MathUtils.lerp(1-rect[3]/1254,1-rect[1]/1254,uv.getY(j)));
+  const m=new THREE.Mesh(geo,cloudMat);m.name='手绘'+kinds[type];m.position.set(Math.cos(a)*dist,(type===3?23:type===2?45+R()*48:35)+h*.5,Math.sin(a)*dist);m.lookAt(0,m.position.y,0);m.renderOrder=-2;m.userData.cloudKind=kinds[type];g.add(m);
  }
  g.userData.cloudKinds=kinds;return g;
 }

@@ -36,7 +36,7 @@ def blink(t,centers):
 def render(t):
     eye=np.maximum(eye_masks[0]*blink(t,[2.5,6.5,10.5]),eye_masks[1]*blink(t,[1.5,5.5,9.5]))
     base=source*(1-eye[...,None])+closed*eye[...,None]
-    breath=7*(.5-.5*np.cos(2*np.pi*t/6))
+    breath=26*(.5-.5*np.cos(2*np.pi*t/6))
     bx=.9*np.sin(2*np.pi*t/12);gx=.8*np.sin(2*np.pi*t/12+1)
     mx=X-bx*boy-gx*girl
     my=Y+breath*body-.6*np.sin(2*np.pi*t/12)*boy-.7*np.sin(2*np.pi*t/12+1)*girl
@@ -46,18 +46,18 @@ def render(t):
         pulse=(.5+.5*np.sin(2*np.pi*t/(3 if i%2 else 4)+i*1.7))**2
         glow=np.exp(-((X-cx-1.5*np.sin(2*np.pi*t/12+i))**2+(Y-cy-2*np.sin(2*np.pi*t/6+i))**2)/32)
         frame+=glow[...,None]*np.array([35,29,10])*pulse
-    # A small bright white/gold four-point glint anchored to her left ring finger.
-    # Two gentle flashes per six seconds, not a screen-wide light or camera effect.
+    # A clear white/gold four-point glint anchored to her left ring finger.
+    # Two distinct flashes per six seconds, not a screen-wide light or camera effect.
     phase=t%6
-    pulse=max(0,1-abs(phase-1.8)/.42)**2+.65*max(0,1-abs(phase-2.45)/.26)**2
+    pulse=max(0,1-abs(phase-1.8)/.62)**1.6+.85*max(0,1-abs(phase-2.65)/.40)**1.6
     rx,ry=1170.5,554.0
     ix,iy=int(rx),int(ry)
     rx+=gx*girl[iy,ix]
     ry-=breath*body[iy,ix]-.7*np.sin(2*np.pi*t/12+1)*girl[iy,ix]
     dx=X-rx;dy=Y-ry
-    halo=np.exp(-(dx*dx+dy*dy)/11)*.30
-    cross=np.exp(-dx*dx/.55-dy*dy/28)+np.exp(-dy*dy/.55-dx*dx/22)
-    frame+=(halo+cross)[...,None]*np.array([170,185,200])*pulse
+    halo=np.exp(-(dx*dx+dy*dy)/48)*.65
+    cross=np.exp(-dx*dx/1.8-dy*dy/190)+np.exp(-dy*dy/1.8-dx*dx/140)
+    frame+=(halo+cross)[...,None]*np.array([255,244,220])*pulse
     return np.uint8(np.clip(frame,0,255))
 if __name__=='__main__':
     out=Path(sys.argv[1]) if len(sys.argv)>1 else root/'dist/assets/loading-night.mp4'
@@ -74,6 +74,6 @@ if __name__=='__main__':
     assert np.array_equal(a[100:400,1300:1550],b[100:400,1300:1550]),'Treehouse must stay fixed'
     assert np.abs(a[300:550,700:1000].astype(float)-b[300:550,700:1000]).mean()>.1
     quiet=render(0)[547:561,1164:1178].mean();flash=render(1.8)[547:561,1164:1178].mean()
-    assert flash>quiet+3,'Diamond must visibly sparkle'
+    assert flash>quiet+15,'Diamond must visibly sparkle'
     assert np.max(np.abs(render(0).astype(int)-render(12).astype(int)))<=1,'Loop must close'
     print('PASS: sky/treehouse fixed; belly moves; separate blink schedules; diamond flashes; seamless 12s loop')
