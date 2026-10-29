@@ -5,6 +5,7 @@ import {SprintControl,movementKey} from './sprint-control.js';
 import {setupDisplayControls} from './display-controls.js';
 import {IslandOcean} from './ocean.js';
 import {TreeOcclusion} from './tree-occlusion.js';
+import {BuildingOcclusion} from './building-occlusion.js';
 import {addElderTree,updateElderGlade,inElderRiver,onElderBridge} from './elder-tree.js';
 import {moveWithCollisions} from './collision.js';
 import {planStartup,finishStartup,detailStream} from './asset-stream.js';
@@ -100,6 +101,7 @@ const sunShafts=new SunShafts(scene,LOW);
 const ocean=new IslandOcean(scene,LOW);
 let canopySeated=false;
 const treeOcclusion=new TreeOcclusion(scene);
+const buildingOcclusion=new BuildingOcclusion(scene);
 
 // ---------------- selectable protagonists ----------------
 await characterReady;
@@ -759,6 +761,7 @@ function frame() {
   }
 
   treeOcclusion.update(dt,camera,cat.getHeadWorld(new THREE.Vector3()),P.pos);
+  buildingOcclusion.update(dt,camera,cat.getHeadWorld(new THREE.Vector3()),P.pos);
   renderer.render(scene, camera);
   equipment.render();
   requestAnimationFrame(frame);
