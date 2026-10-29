@@ -1,8 +1,2 @@
-import assert from 'node:assert/strict';
-import {THREE} from './headless.mjs';
-import {buildWorld,colliders,groundAt} from '../dist/src/world.js';
-import {loadDreamWorld} from '../dist/src/dream.js';
-import {addEnchantedGrove} from '../dist/src/enchanted-grove.js';
-import {addElderTree} from '../dist/src/elder-tree.js';
-import {CatBus} from '../dist/src/catbus.js';
-const scene=new THREE.Scene();buildWorld(scene);await loadDreamWorld(scene,true);await addEnchantedGrove(scene,true);await addElderTree(scene);const bus=await CatBus.create(scene,colliders);assert(bus.nodes.size>10);assert.equal(bus.routes.length,1);assert(bus.root.position.distanceTo(new THREE.Vector3(0,0,6))>16);let travel=0,lateTravel=0,maxTurn=0,maxAccel=0;for(let i=0;i<5400;i++){const p=bus.root.position.clone(),yaw=bus.yaw,speed=bus.speed;bus.update(1/30,[]);travel+=p.distanceTo(bus.root.position);if(i>4500)lateTravel+=p.distanceTo(bus.root.position);maxTurn=Math.max(maxTurn,Math.abs(bus.yaw-yaw)*30);maxAccel=Math.max(maxAccel,Math.abs(bus.speed-speed)*30);assert(bus.safe(bus.root.position.x,bus.root.position.z));assert(bus.footprintSafe(bus.root.position.x,bus.root.position.z,bus.yaw));}assert(travel>180,`bus stuck ${travel}`);assert(lateTravel>5,`late route stalled ${lateTravel}`);assert(maxTurn<=.42);assert(maxAccel<=.801);bus.riding=true;bus.stopping=true;for(let i=0;i<150;i++)bus.update(1/30,[]);assert(bus.speed<.025);assert(bus.exitPoint());const parkedYaw=bus.yaw;for(let i=0;i<180;i++)bus.update(1/30,[bus.root.position.clone()]);assert(Math.abs(bus.yaw-parkedYaw)<.001);const pavilion=scene.children.find(o=>o.userData.buildingId==='shrine');assert(pavilion.userData.walkableDeck);const y=pavilion.userData.walkableDeck.y;assert(Math.abs(groundAt(23,40,y+.1)-y)<.045);assert(!colliders.some(c=>c.top>900&&c.type==='box'&&c.minX<23&&c.maxX>23&&c.minZ<40&&c.maxZ>40));console.log({routes:bus.routes.length,nodes:bus.nodes.size,travel,lateTravel,maxTurn,maxAccel,stopped:bus.speed,deck:pavilion.userData.walkableDeck});
+// The village service supersedes the old single-ellipse patrol.
+import './village21-check.mjs';

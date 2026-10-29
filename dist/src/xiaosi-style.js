@@ -1,8 +1,10 @@
 import * as THREE from 'three';
+import {fitXiaosiReference} from './xiaosi-reference.js';
 
 // The C haircut is baked by prepare-xiaosi-c.py, retaining the face and UVs.
 // Accessories are fitted in mesh bind space, then attached to the actual bones.
 export function dressXiaosi(actor){
+ fitXiaosiReference(actor.model);
  let body;actor.model.traverse(o=>{if(o.isSkinnedMesh&&!body)body=o;});
  actor.root.updateMatrixWorld(true);
  const makeMat=(color,metalness=0,roughness=.6)=>new THREE.MeshStandardMaterial({color,metalness,roughness});
@@ -30,24 +32,24 @@ export function dressXiaosi(actor){
  const cloth=makeMat('#102653',0,.92);cloth.side=THREE.DoubleSide;
  const panel=new THREE.SkinnedMesh(panelGeo,cloth);panel.name='齐肩发下的完整衣背';panel.bind(body.skeleton,body.bindMatrix);panel.frustumCulled=false;panel.castShadow=true;body.parent.add(panel);
 
- const halfUp=group('小司 · C款半扎齐肩微卷');
- // Narrow swept sections meet above the nape, with a small ponytail over the loose curls.
- for(const sign of [-1,1])for(let i=0;i<3;i++){
-  const y=1.355+i*.014;
-  tube([[sign*.16,y,-.145],[sign*.135,y+.017,-.22],[.065,1.415+i*.004,-.255],[.08,1.405,-.265]],.0045,hair,halfUp);
+ const halfUp=group('小司 · 齐肩半扎丸子头');
+ // The reference has a compact bun high at the back, not a hanging ponytail.
+ const bunCenter=new THREE.Vector3(.055,1.435,-.155),bunGeo=new THREE.SphereGeometry(.062,40,28);
+ const bp=bunGeo.attributes.position,colors=[];
+ for(let i=0;i<bp.count;i++){const v=new THREE.Vector3().fromBufferAttribute(bp,i),phi=Math.atan2(v.z,v.x),theta=Math.acos(THREE.MathUtils.clamp(v.y/.062,-1,1)),ripple=1+.025*Math.sin(phi*9+theta*4);v.multiplyScalar(ripple);v.y*=.88;v.z*=.94;bp.setXYZ(i,v.x,v.y,v.z);const c=new THREE.Color('#72503a').lerp(new THREE.Color('#9a7152'),.12+.12*Math.sin(phi*9+theta*4));colors.push(c.r,c.g,c.b);}
+ bunGeo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));bunGeo.computeVertexNormals();const bunMat=makeMat('#78553c',0,.92);const bun=mesh(bunGeo,bunMat,halfUp,bunCenter.toArray());bun.name='松软小丸子';
+ const sweep=makeMat('#715039',0,.94),strand=makeMat('#896247',0,.95);
+ for(let j=0;j<7;j++){
+  const points=[];for(let k=0;k<=30;k++){const t=k/30,phi=j/7*Math.PI*2+t*2.1,theta=.32+t*2.15;points.push([bunCenter.x+Math.sin(theta)*Math.cos(phi)*.063,bunCenter.y+Math.cos(theta)*.055,bunCenter.z+Math.sin(theta)*Math.sin(phi)*.060]);}
+  tube(points,.0018,strand,halfUp);
  }
- for(let i=0;i<9;i++){
-  const x=.08+(i-4)*.007;
-  const mat=makeMat(['#674733','#73503a','#5f402f'][i%3],0,.88);
-  tube([[.08,1.41,-.265],[x+.014,1.39,-.30],[x+.025*Math.sin(i),1.32,-.302],[x-.008,1.25,-.285]],.007,mat,halfUp);
+ const bow=group('象牙白丸子发带');bow.position.set(.104,1.426,-.193);bow.rotation.z=-.22;halfUp.add(bow);
+ for(const sign of [-1,1]){
+  const loop=new THREE.Shape();loop.moveTo(sign*.002,0);loop.bezierCurveTo(sign*.017,.031,sign*.046,.032,sign*.041,.012);loop.bezierCurveTo(sign*.038,-.008,sign*.012,-.007,sign*.002,0);
+  mesh(new THREE.ExtrudeGeometry(loop,{depth:.003,bevelEnabled:true,bevelSize:.001,bevelThickness:.001,bevelSegments:2,steps:1}),ivory,bow);
+  tube([[sign*.004,-.004,0],[sign*.012,-.032,-.006],[sign*.018,-.058,-.005]],.0045,ivory,bow);
  }
- const bow=group('象牙色半扎发带');bow.position.set(.082,1.417,-.283);halfUp.add(bow);
- for(const s of [-1,1]){
-  tube([[s*.009,0,0],[s*.037,.021,-.008],[s*.057,.006,-.006],[s*.033,-.011,0],[s*.009,0,0]],.006,ivory,bow);
-  tube([[s*.008,-.006,0],[s*.016,-.040,-.010],[s*.031,-.079,-.008]],.006,ivory,bow);
- }
- mesh(new THREE.SphereGeometry(.009,16,12),ivory,bow).scale.set(.75,1,1);
- halfUp.position.z=.115;
+ mesh(new THREE.SphereGeometry(.007,12,8),ivory,bow);
  attach(halfUp,actor.bones.Head);
 
  const necklace=group('金叶项链');

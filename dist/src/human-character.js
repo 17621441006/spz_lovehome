@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import {solveLimb,setWorldQuaternion} from './limb-ik.js';
 import {XIAOYONG_RUN} from './xiaoyong-run.js';
 import {dressXiaosi} from './xiaosi-style.js';
+import {updateXiaosiWalk} from './xiaosi-walk.js';
 
 export async function loadHumanCharacter(id){return new HumanCharacter(await loadGLB(`assets/characters/${id==='xiaosi'?'xiaosi-c':id}.glb`),id);}
 
@@ -22,7 +23,7 @@ export class HumanCharacter{
   this.gaitRate=1;
   // Remove the retarget export's terminal bind-pose frame; close every track on its first key.
   if(id==='xiaoyong'){const run=clips.find(c=>c.name==='mesh_run');for(const t of run.tracks){const n=t.getValueSize();for(let k=0;k<n;k++)t.values[t.values.length-n+k]=t.values[k];}}
-  this.gaitSpeed=id==='xiaosi'?{walk:.43,mesh_run:3.3}:{walk:.55,mesh_run:3.65};
+  this.gaitSpeed=id==='xiaosi'?{walk:1.0,mesh_run:3.3}:{walk:.55,mesh_run:3.65};
   // These gestures use the source upper-body motion over a standing lower body.
   // Seated hip/leg tracks are deliberately excluded rather than hovering in a chair pose.
   for(const [name,source]of [['stretch','seat_stretch'],['hug','hold_cat']]){const src=clips.find(c=>c.name===source),idle=clips.find(c=>c.name==='idle');if(src&&idle){const upper=n=>/^(Chest|Neck|Head|(?:Left|Right)(?:Clavicle|UpperArm|ForeArm|Hand))\./.test(n);const tracks=idle.tracks.filter(t=>!upper(t.name)).map(t=>t.clone()).concat(src.tracks.filter(t=>upper(t.name)).map(t=>t.clone()));clips.push(new THREE.AnimationClip(name,src.duration,tracks));}}
@@ -51,6 +52,7 @@ export class HumanCharacter{
   const velocity=s.actualVelocity||s.vel;
   if(moving&&velocity&&Math.hypot(velocity.x,velocity.z)>.1){const angle=Math.atan2(velocity.x,velocity.z)-this.root.rotation.y;this.model.rotation.y=Math.atan2(Math.sin(angle),Math.cos(angle));}
   for(const p of this.pose){p.bone.position.copy(p.p);p.bone.quaternion.copy(p.q);p.bone.scale.copy(p.s);}this.mixer.update(dt);for(const p of this.pose){p.p.copy(p.bone.position);p.q.copy(p.bone.quaternion);p.s.copy(p.bone.scale);}
+  if(this.id==='xiaosi')updateXiaosiWalk(this,dt,name==='walk');
   this.sitBlend+=((name==='sit_idle'?1:0)-this.sitBlend)*(1-Math.exp(-7*dt));this.root.updateMatrixWorld(true);
   if(this.sitBlend>.01){const hips=this.bones.Hips,at=hips.getWorldPosition(new THREE.Vector3());const local=this.model.worldToLocal(at.clone());const desired=this.modelPoint(local.x,this.id==='xiaosi'?.105:.135,local.z);hips.parent.worldToLocal(desired);hips.position.y=THREE.MathUtils.lerp(hips.position.y,desired.y,this.sitBlend);this.root.updateMatrixWorld(true);
    for(const [side,sign]of [['Left',1],['Right',-1]]){const foot=this.bones[side+'Foot'],target=foot.getWorldPosition(new THREE.Vector3()).lerp(this.modelPoint(sign*.115,.078,this.id==='xiaosi'?.25:.30),this.sitBlend);solveLimb(this.bones[side+'UpperLeg'],this.bones[side+'LowerLeg'],foot,target,this.modelPoint(sign*.13,.65,.24));const rest=this.model.getWorldQuaternion(new THREE.Quaternion()).multiply(this.footRest[side]);setWorldQuaternion(foot,foot.getWorldQuaternion(new THREE.Quaternion()).slerp(rest,this.sitBlend));}

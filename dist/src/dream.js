@@ -4,7 +4,7 @@ import {coatTree} from './forest-weather.js';
 import {BUILDING_COLLISIONS} from './building-collisions.js';
 import {openPavilion} from './pavilion.js';
 import * as THREE from 'three';
-import {heightAt,LAYOUT,roadDist,trailDist,edgeRadius} from './terrain.js';
+import {heightAt,LAYOUT,roadDist,trailDist,edgeRadius,catbusRouteDist} from './terrain.js';
 import {colliders,createTorii,nearStructure} from './world.js';
 import {rng} from './toon.js';
 import {rootFootprint,rootPlacement,terrainSlope} from './tree-grounding.js';
@@ -41,9 +41,9 @@ export async function loadDreamWorld(scene,low,{progressive=false}={}){
 
  const trees={};for(const name of ['forest-tree','broadleaf-tree','fantasy-tree']){assets[name].updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(assets[name]);const high=normalizeModel(assets[name],8.4,bounds),far=normalizeModel(assets[name+'-lod'],8.4,bounds);wind(high);wind(far);coatTree(high);coatTree(far);trees[name]={high,far,roots:rootFootprint(high,far)};}
  magicTreePrototype=trees['forest-tree'].high;
- function tree(type,x,z,size=1,rotation=0,distant=false){if(Math.hypot(x-LAYOUT.elder.x,z-LAYOUT.elder.z)<LAYOUT.elder.flat+2)return null;const br=LAYOUT.catbusRoute;if(Math.abs(Math.hypot((x-br.x)/br.rx,(z-br.z)/br.rz)-1)*Math.min(br.rx,br.rz)<5)return null;const proto=trees[type];let support=rootPlacement(proto.roots,x,z,size,rotation);
+ function tree(type,x,z,size=1,rotation=0,distant=false){if(Math.hypot(x-LAYOUT.elder.x,z-LAYOUT.elder.z)<LAYOUT.elder.flat+2)return null;if(catbusRouteDist(x,z)<3.8)return null;const proto=trees[type];let support=rootPlacement(proto.roots,x,z,size,rotation);
   if(support.spread>.9){const ox=x,oz=z;let found=false;for(let r=1;r<=10&&!found;r++)for(let j=0;j<20;j++){const a=j/20*Math.PI*2,nx=ox+Math.cos(a)*r,nz=oz+Math.sin(a)*r;if(Math.hypot(nx,nz)+4.2*size>LAYOUT.treeLimit||roadDist(nx,nz)<3||trailDist(nx,nz)<2.5||nearStructure(nx,nz,2))continue;if(colliders.some(c=>c.top>900&&c.type==='circle'&&Math.hypot(nx-c.x,nz-c.z)<c.r+1.6))continue;const candidate=rootPlacement(proto.roots,nx,nz,size,rotation);if(candidate.inside&&candidate.spread<.8){x=nx;z=nz;support=candidate;found=true;break;}}if(!found)return null;}
-  if(!support.inside)return null;let t;if(distant)t=proto.far.clone(true);else{t=new THREE.LOD();t.addLevel(proto.high.clone(true),0);t.addLevel(proto.far.clone(true),low?17:28);}
+  if(!support.inside||catbusRouteDist(x,z)<3.8)return null;let t;if(distant)t=proto.far.clone(true);else{t=new THREE.LOD();t.addLevel(proto.high.clone(true),0);t.addLevel(proto.far.clone(true),low?17:28);}
   t.name=distant?'远景模型树':'森林模型树';t.userData.treeAsset=type;t.userData.rootSupport=support.contact;t.userData.rootSpread=support.spread;t.position.set(x,support.y,z);t.rotation.y=rotation;t.scale.multiplyScalar(size);if(distant)t.traverse(o=>{if(o.isMesh)o.castShadow=false;});scene.add(t);colliders.push({type:'circle',x,z,r:.52*size,top:999});return t;}
  const near=[[-8,4,1],[-15,10,1.15],[-19,27,.9],[5,25,1.12],[14,21,1.1],[29,8,1.18],[25,-6,1.2],[7,-19,1.08],[-1,-24,1.2],[-17,-29,1.15],[-29,4,1.1],[-30,-7,1.2],[-31,-19,1.1],[-19,-9,.85],[-18,-20,.85]];
  near.forEach(([x,z,size],i)=>tree(i%3===0?'broadleaf-tree':'forest-tree',x,z,size,i*2.3));

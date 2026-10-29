@@ -1,7 +1,7 @@
 // Static world: sky, clouds, trees, camphor tree & shrine, house, bus stop, pond, platforms, particles
 import * as THREE from 'three';
 import { toon, rng, wobble, ellipsoid } from './toon.js';
-import { LAYOUT, heightAt, roadDist } from './terrain.js';
+import { LAYOUT, heightAt, roadDist, catbusRouteDist } from './terrain.js';
 import { createDreamWater } from './dream.js';
 import { nearLake } from './lake.js';
 
@@ -13,7 +13,8 @@ export function groundAt(x, z, y = Infinity, catR = 0) {
   for (const c of colliders) {
     if (c.top > y + 0.35) continue;
     if (c.top <= g) continue;
-    if (c.type === 'circle') {
+    if(c.type==='annulus'){const d=Math.hypot(x-c.x,z-c.z);if(d>=c.inner&&d<=c.outer)g=c.top;}
+    else if (c.type === 'circle') {
       if (Math.hypot(x - c.x, z - c.z) < c.r + catR * 0.4) g = c.top;
     } else if (x > c.minX - catR * 0.4 && x < c.maxX + catR * 0.4 && z > c.minZ - catR * 0.4 && z < c.maxZ + catR * 0.4) g = c.top;
   }
@@ -68,9 +69,9 @@ function blob(r, x, y, z, seed, sy = 0.85) {
 
 // ---------- sky ----------
 export const skyUniforms = {
-  uTop: { value: new THREE.Color('#4f8fd6') },
-  uHorizon: { value: new THREE.Color('#cfe8ef') },
-  uBottom: { value: new THREE.Color('#9fbf8a') },
+  uTop: { value: new THREE.Color('#367fca') },
+  uHorizon: { value: new THREE.Color('#b3d9ed') },
+  uBottom: { value: new THREE.Color('#bed6cb') },
   uSunDir: { value: new THREE.Vector3(0.5, 0.6, 0.3).normalize() },
   uNight: { value: 0 },
   uRain: { value: 0 },
@@ -86,10 +87,10 @@ function buildSky() {
       void main(){
         vec3 d = normalize(vDir);
         float y = d.y;
-        vec3 col = mix(uHorizon, uTop, pow(clamp(y,0.0,1.0), 0.55));
-        if (y < 0.0) col = mix(uHorizon, uBottom, smoothstep(0.0, -0.25, y));
+        vec3 col = mix(uHorizon, uTop, pow(clamp(y,0.0,1.0), 0.42));
+        if (y < 0.0) col = mix(uHorizon, uBottom, smoothstep(0.0, 0.25, -y));
         float sd = max(dot(d, uSunDir), 0.0);
-        col += vec3(1.0, 0.85, 0.6) * pow(sd, 48.0) * 0.5 * (1.0 - uRain);
+        col += vec3(1.0, 0.88, 0.70) * pow(sd, 72.0) * 0.24 * (1.0 - uRain);
         // moon
         col = mix(col, vec3(1.0, 0.98, 0.85), smoothstep(0.9985, 0.999, sd) * uNight * (1.0 - uRain));
         col += vec3(0.6,0.7,1.0) * pow(sd, 200.0) * uNight * 0.4;
@@ -99,6 +100,10 @@ function buildSky() {
         float h = hash(id);
         float star = step(0.993, h) * smoothstep(0.45, 0.0, length(fract(uv) - 0.5));
         col += vec3(star) * uNight * (1.0 - uRain) * smoothstep(0.05, 0.3, y);
+        // World-stable paper grain and broad blue washes, with no camera shake.
+        float grain=hash(floor(d.xz*4200.0+d.y*730.0))-.5;
+        float wash=sin(d.x*11.0+d.y*5.0)*sin(d.z*8.0-d.y*3.0);
+        col+=(grain*.0035+wash*.006)*(1.0-uNight)*(1.0-uRain);
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>
       }`,
@@ -109,35 +114,33 @@ function buildSky() {
   return m;
 }
 
-export const cloudMat = new THREE.MeshToonMaterial({ color: '#ffffff', emissive: '#7d93b3', emissiveIntensity: 0.55, fog: false });
-function buildClouds() {
-  const g = new THREE.Group();
-  const R = rng(99);
-  for (let c = 0; c < 14; c++) {
-    const a = (c / 14) * Math.PI * 2 + R() * 0.3;
-    const dist = 230 + R() * 90;
-    const cx = Math.cos(a) * dist, cz = Math.sin(a) * dist, cy = 45 + R() * 55;
-    const parts = [];
-    const n = 7 + Math.floor(R() * 7);
-    const w = 25 + R() * 30;
-    for (let i = 0; i < n; i++) {
-      const t = i / (n - 1) - 0.5;
-      const r = (10 + R() * 9) * (1 - Math.abs(t) * 0.9);
-      const sg = new THREE.IcosahedronGeometry(1, 2);
-      sg.deleteAttribute('uv');
-      sg.scale(r, r * 0.85, r);
-      sg.translate(t * w * 1.6, r * 0.3 + R() * 6, (R() - 0.5) * 10);
-      const p = sg.attributes.position;
-      for (let k = 0; k < p.count; k++) if (p.getY(k) < 0) p.setY(k, 0);
-      sg.computeVertexNormals();
-      parts.push({ geo: sg, color: '#ffffff' });
-    }
-    const mesh = new THREE.Mesh(mergeGeos(parts), cloudMat);
-    mesh.position.set(cx, cy, cz);
-    mesh.lookAt(0, cy, 0);
-    g.add(mesh);
+export const cloudMat = new THREE.MeshStandardMaterial({color:'#ffffff',vertexColors:true,roughness:1,emissive:'#7d93b3',emissiveIntensity:.05,fog:false});
+cloudMat.onBeforeCompile=shader=>{
+ shader.vertexShader='varying vec3 vCloudPaper;\n'+shader.vertexShader;
+ shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvCloudPaper=position;');
+ shader.fragmentShader='varying vec3 vCloudPaper;\n'+shader.fragmentShader;
+ shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+ float pigment=sin(vCloudPaper.x*2.2+sin(vCloudPaper.y*3.1))*sin(vCloudPaper.z*3.7+vCloudPaper.y)*.010;
+ diffuseColor.rgb+=pigment;`);
+};
+cloudMat.customProgramCacheKey=()=> 'painted-cumulus-v21';
+function buildClouds(){
+ const g=new THREE.Group();g.name='晴空 · 大小不同的积云与薄云';const R=rng(21099),kinds=['tower','small','ribbon','small','cumulus','ribbon'];
+ for(let c=0;c<24;c++){
+  const kind=kinds[c%kinds.length],a=c/24*Math.PI*2+(R()-.5)*.17,dist=235+R()*100,cy=kind==='ribbon'?32+R()*22:kind==='tower'?53+R()*33:40+R()*65;
+  const w=kind==='ribbon'?35+R()*30:kind==='tower'?26+R()*22:kind==='small'?10+R()*16:24+R()*20;
+  const n=kind==='small'?4+Math.floor(R()*3):7+Math.floor(R()*6),parts=[];
+  for(let i=0;i<n;i++){
+   const t=i/(n-1)-.5,envelope=Math.pow(Math.max(.05,1-4*t*t),.55),r=(kind==='small'?3.2:kind==='ribbon'?4.4:7.4)*( .55+R()*.7)*(.55+envelope*.65),h=kind==='ribbon'?.33:kind==='tower'?(1+envelope*.6):.7+R()*.4;
+   const sg=new THREE.IcosahedronGeometry(1,3);sg.deleteAttribute('uv');wobble(sg,.045,c*29+i,4.2);sg.scale(r,r*h,r*.68);
+   sg.translate(t*w,(kind==='tower'?envelope*7:envelope*1.3)+(R()-.5)*1.4,(R()-.5)*r*.65);
+   const pos=sg.attributes.position;for(let j=0;j<pos.count;j++)if(pos.getY(j)<0)pos.setY(j,pos.getY(j)*.16);sg.computeVertexNormals();parts.push({geo:sg,color:'#ffffff'});
   }
-  return g;
+  const geo=mergeGeos(parts);geo.computeBoundingBox();const pos=geo.attributes.position,col=geo.attributes.color,norm=geo.attributes.normal,box=geo.boundingBox;
+  for(let i=0;i<pos.count;i++){const y=(pos.getY(i)-box.min.y)/(box.max.y-box.min.y),shade=THREE.MathUtils.smoothstep(y,.02,.60),up=THREE.MathUtils.clamp(norm.getY(i)*.3+.7,0,1),color=new THREE.Color('#9eb5ce').lerp(new THREE.Color('#fffbea'),Math.min(1,shade*.84+up*.16));col.setXYZ(i,color.r,color.g,color.b);}
+  const m=new THREE.Mesh(geo,cloudMat);m.name=kind==='tower'?'高耸积云':kind==='ribbon'?'远处的薄云带':kind==='small'?'零散小白云':'蓬松积云';m.position.set(Math.cos(a)*dist,cy,Math.sin(a)*dist);m.lookAt(0,cy,0);m.userData.cloudKind=kind;g.add(m);
+ }
+ g.userData.cloudKinds=kinds;return g;
 }
 
 // ---------- trees ----------
@@ -686,7 +689,7 @@ export function buildWorld(scene) {
 export function nearStructure(x, z, pad = 0) {
   const L = LAYOUT;
   if(Math.hypot(x-L.elder.x,z-L.elder.z)<L.elder.flat+pad)return true;
-  const bus=L.catbusRoute;if(Math.abs(Math.hypot((x-bus.x)/bus.rx,(z-bus.z)/bus.rz)-1)*Math.min(bus.rx,bus.rz)<3.2+pad)return true;
+  if(catbusRouteDist(x,z)<2.9+pad)return true;
   if(Math.abs(x-L.inari.x)<2.2+pad && z>L.inari.z-2-pad && z<42+pad) return true;
   for(const b of L.buildings)if(Math.hypot(x-b.x,z-b.z)<b.flat+pad)return true;
   if (Math.hypot(x - L.camphor.x, z - L.camphor.z) < 3.5 + pad) return true;

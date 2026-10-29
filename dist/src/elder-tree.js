@@ -5,6 +5,7 @@ import {heightAt,LAYOUT,terrainSnow} from './terrain.js';
 import {coatTree} from './forest-weather.js';
 import {colliders} from './world.js';
 import {rng} from './toon.js';
+import {createElderSanctuary} from './elder-sanctuary.js';
 
 const streamTime={value:0},gladeGlow=[];
 
@@ -18,13 +19,12 @@ export function updateElderGlade(time,night=0){streamTime.value=time;for(const m
 export async function addElderTree(scene){
  const root=(await loadGLB('assets/elder-tree.glb')).scene;root.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(root),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
  let tallest=0;for(const o of scene.children)if(o.userData.treeAsset||o.userData.groveKind==='sakura'){const b=new THREE.Box3().setFromObject(o);tallest=Math.max(tallest,b.max.y-b.min.y);}
- const height=Math.max(42,tallest*3.05),scale=height/size.y;root.scale.setScalar(scale);root.position.set(-center.x*scale,-box.min.y*scale,-center.z*scale);
+ const height=Math.max(42,tallest*3.05)*2/3,scale=height/size.y;root.scale.setScalar(scale);root.position.set(-center.x*scale,-box.min.y*scale,-center.z*scale);
  const group=new THREE.Group();group.add(root);const {x,z}=LAYOUT.elder;group.position.set(x,heightAt(x,z)-.20,z);group.name='云冠古树';group.userData.occludingTree=true;group.userData.elderTree={height,ordinaryMaxHeight:tallest,originalTriangles:46643,location:[x,z]};
  root.traverse(o=>{if(!o.isMesh)return;o.castShadow=o.receiveShadow=true;for(const m of Array.isArray(o.material)?o.material:[o.material]){m.metalness=0;m.roughness=.95;if(m.map)m.map.anisotropy=8;}});coatTree(group);scene.add(group);group.updateMatrixWorld(true);
- colliders.push({type:'circle',x,z,r:4.4,top:999,elderTree:true});
+ group.sanctuary=createElderSanctuary(scene,group,colliders);
  // The height field itself is flat under the entire root spread. This broad,
  // low moss bed closes tiny gaps between the uneven root tips and that soil.
- const bed=new THREE.Mesh(new THREE.SphereGeometry(1,48,12),new THREE.MeshStandardMaterial({color:'#657544',roughness:1}));bed.scale.set(6.4,.22,6.2);bed.position.set(x,heightAt(x,z)-.11,z);bed.name='古树的平底苔原';bed.receiveShadow=true;scene.add(bed);
  const glade=buildGlade();scene.add(glade);
  await addGladeModels(glade);
 
@@ -35,7 +35,7 @@ async function addGladeModels(glade){
  const placements={
   'glade-tree':[[-9.8,8.8,5.2,.4],[-10.5,-7.5,4.5,1.7],[.5,-12.5,5,-.6]],
   'glade-rock':[[-6,-34,1.3,.6],[12,-38,1.6,2.1],[60,26,.9,1.2]],
-  'crystal':[[-5,34,1,.3],[24,-38,.9,1.2]]
+  'crystal':[[-5,34,1,.3],[17,-39,.9,1.2]]
  };
  function prototype(source,id,h){const m=source.clone(true);m.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(m),c=box.getCenter(new THREE.Vector3()),k=h/box.getSize(new THREE.Vector3()).y;m.scale.setScalar(k);m.position.set(-c.x*k,-box.min.y*k,-c.z*k);m.traverse(o=>{if(!o.isMesh)return;o.material=o.material.clone();o.material.roughness=id==='glade-tree'?.95:.8;o.material.metalness=0;if(o.material.map)o.material.map.anisotropy=8;o.castShadow=o.receiveShadow=true;if(id!=='glade-tree'){o.material.emissive=new THREE.Color(id==='glade-rock'?'#75508a':'#678eb6');o.material.emissiveMap=o.material.map;gladeGlow.push(o.material);}});if(id==='glade-tree')coatTree(m);return m;}
  await Promise.all(Object.entries(placements).map(async([id,positions])=>{

@@ -4,7 +4,7 @@ export function moveWithCollisions(pos,dx,dz,r,colliders){
  for(let step=0;step<count;step++){
   pos.x+=dx/count;pos.z+=dz/count;
   for(let pass=0;pass<3;pass++)for(const c of colliders){
-   if(c.floorOnly||pos.y>=c.top-.30)continue;
+   if(c.floorOnly||pos.y>=c.top-.30||(c.bottom!==undefined&&pos.y+1.6<c.bottom))continue;
    if(c.type==='circle'){
     let x=pos.x-c.x,z=pos.z-c.z,d=Math.hypot(x,z),limit=c.r+r;
     if(d>=limit)continue;if(d<1e-7){x=1;z=0;d=1;}

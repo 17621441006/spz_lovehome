@@ -1,0 +1,5 @@
+import assert from 'node:assert/strict';import {THREE} from './headless.mjs';import {loadHumanCharacter} from '../dist/src/human-character.js';import {CHARACTER_DEFS} from '../dist/src/characters.js';
+const actor=await loadHumanCharacter('xiaosi'),speed=CHARACTER_DEFS.xiaosi.walk,frames=[];
+for(let i=0;i<300;i++){actor.update(1/60,{speed,grounded:true,running:false,idle:0,actualVelocity:new THREE.Vector3(0,0,speed)});actor.root.updateMatrixWorld(true);if(i<60)continue;const f={};for(const side of ['Left','Right'])f[side]=actor.bones[side+'Foot'].getWorldPosition(new THREE.Vector3());frames.push(f);}
+const span=side=>Math.max(...frames.map(f=>f[side].z))-Math.min(...frames.map(f=>f[side].z)),width=frames.reduce((s,f)=>s+Math.abs(f.Left.x-f.Right.x),0)/frames.length;assert(actor.actions.walk.timeScale<1.6);assert(span('Left')>.49&&span('Right')>.49);assert(width>.08&&width<.13);assert(frames.every(f=>f.Left.y>.04&&f.Right.y>.04));
+console.log({cycleSeconds:actor.actions.walk.getClip().duration/actor.actions.walk.timeScale,fullStride:[span('Left'),span('Right')],footSpacing:width,speedPreserved:speed});

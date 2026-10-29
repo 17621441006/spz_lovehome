@@ -88,7 +88,8 @@ const chibi = new SmallTotoro(scene, 'chibi', { x: -1, z: -7 });
 const soot = new SootSprites(scene, 14);
 
 const sound = new Sound();
-let catbus=CatBus.pending();
+let catbus=CatBus.pending(),elderSanctuary=null,portalTrip=null;
+const portalFade=document.createElement('div');portalFade.className='portal-fade';portalFade.setAttribute('aria-hidden','true');document.body.appendChild(portalFade);
 const sunShafts=new SunShafts(scene,LOW);
 const treeOcclusion=new TreeOcclusion(scene);
 
@@ -105,7 +106,7 @@ const life=new ForestLife(roster,colliders);
 let extrasStarted=false;
 function loadExtras(){if(extrasStarted)return;extrasStarted=true;
  // Decode optional assets after entry, one at a time; detail streaming starts last.
- Promise.resolve().then(()=>addElderTree(scene)).catch(console.error).then(()=>CatBus.create(scene,colliders)).then(bus=>{catbus=bus;}).catch(console.error).then(()=>life.populate()).catch(console.error).finally(()=>{detailStream.enabled=true;});
+ Promise.resolve().then(()=>addElderTree(scene)).then(tree=>{elderSanctuary=tree.sanctuary;}).catch(console.error).then(()=>CatBus.create(scene,colliders)).then(bus=>{catbus=bus;}).catch(console.error).then(()=>life.populate()).catch(console.error).finally(()=>{detailStream.enabled=true;});
 }
 const CAT_R = 0.42;
 
@@ -417,7 +418,7 @@ function burstSparks(center) {
 
 // ---------------- environment palette ----------------
 const PAL = {
-  day: { top: '#79b4c8', hor: '#f0e8c9', bot: '#b2c6a0', fog: '#d5e5cd', sun: '#ffe7b3', sunI: 2.05, hemiS: '#e2eff4', hemiG: '#8e9a70', hemiI: 1.65, furSun: [0.95, 0.86, 0.72], furAmb: [0.72, 0.7, 0.68], grass: [1, 1, 1], fogN: 32, fogF: 115, cloud: 1 },
+  day: { top: '#367fca', hor: '#b3d9ed', bot: '#bed6cb', fog: '#bcd6df', sun: '#ffe7b3', sunI: 2.05, hemiS: '#e2eff4', hemiG: '#8e9a70', hemiI: 1.65, furSun: [0.95, 0.86, 0.72], furAmb: [0.72, 0.7, 0.68], grass: [1, 1, 1], fogN: 48, fogF: 170, cloud: 1 },
   night: { top: '#081230', hor: '#25365a', bot: '#1a2638', fog: '#1b2944', sun: '#9fb5ff', sunI: 0.7, hemiS: '#41558a', hemiG: '#1c2a2a', hemiI: 0.55, furSun: [0.28, 0.33, 0.5], furAmb: [0.17, 0.2, 0.32], grass: [0.33, 0.4, 0.58], fogN: 25, fogF: 120, cloud: 0.25 },
   rainDay: { top: '#6c7a85', hor: '#aab4b6', bot: '#7d8c78', fog: '#9da9ab', sun: '#e6eef2', sunI: 0.8, hemiS: '#c4cfd8', hemiG: '#55654a', hemiI: 1.1, furSun: [0.45, 0.48, 0.5], furAmb: [0.48, 0.52, 0.56], grass: [0.78, 0.82, 0.82], fogN: 12, fogF: 85, cloud: 0.6 },
   rainNight: { top: '#0b1220', hor: '#1d2738', bot: '#131a22', fog: '#18212f', sun: '#8fa0c8', sunI: 0.3, hemiS: '#2f3d5a', hemiG: '#151d1d', hemiI: 0.5, furSun: [0.15, 0.17, 0.25], furAmb: [0.15, 0.17, 0.26], grass: [0.27, 0.32, 0.42], fogN: 8, fogF: 60, cloud: 0.18 },
@@ -625,14 +626,18 @@ function frame() {
   updateElderGlade(elapsed,env.night); fantasyEcology.update(dt,elapsed,P.pos,env,roarGust,say,sound);
   if(started&&!characterMenuOpen&&!equipment.open)detailStream.update(dt,P.pos);
   catbus.paused=!started||characterMenuOpen||equipment.open||!$('busDialog').hidden;
-  catbus.update(dt,[...roster.cache.values()].filter(a=>!(catbus.riding&&a===cat)).map(a=>a.root.position));
+  catbus.update(dt,[...roster.cache.values()].filter(a=>!(catbus.riding&&a===cat)).map(a=>a.root.position).concat([chu.group.position,chibi.group.position]));
   $('busPrompt').hidden=!started||characterMenuOpen||equipment.open||(!catbus.riding&&P.pos.distanceTo(catbus.root.position)>6);
   {const near=!started||characterMenuOpen||equipment.open||catbus.riding||busy()?null:nearKeeper()?'keeper':nearTotoro()?'totoro':null,ap=$('actPrompt');ap.hidden=!near;if(near){$('busPrompt').hidden=true;const label=near==='keeper'?'E / 点击 · 和阿渔伯说话（钓鱼）':'E / 点击 · 和龙猫大人打招呼';if(ap.textContent!==label)ap.textContent=label;ap.dataset.target=near;}}
-  $('busPrompt').textContent=catbus.riding?'猫车慢游中 · E / 点击 停车下车':'E / 点击 与猫车对话';
+  $('busPrompt').textContent=catbus.riding?((catbus.wait>0?'停靠 · '+catbus.stationName:catbus.blocked?'正在礼让行人':catbus.currentRoute?.name||'村庄漫游')+' · E / 点击 下车'):'E / 点击 与猫车对话';
   if(catbus.stopping&&catbus.speed<.025&&catbus.riding){const exit=catbus.exitPoint();if(exit){catbus.riding=false;catbus.stopping=false;catbus.wait=8;P.pos.copy(exit);cat.root.position.copy(exit);P.grounded=true;P.idle=0;P.vel.set(0,0,0);toast('到啦，慢慢下车。');}}
 
   updateCamera(dt);
-  updateCat(dt);
+  if(!portalTrip)updateCat(dt);
+  const destination=elderSanctuary?.update(dt,P.pos,started&&!characterMenuOpen&&!equipment.open&&!catbus.riding&&!portalTrip&&!busy()&&P.grounded);
+  if(destination){portalTrip={...destination,time:0,moved:false};P.vel.set(0,0,0);P.vy=0;portalFade.classList.add('active');}
+  if(portalTrip){portalTrip.time+=dt;if(portalTrip.time>=.28&&!portalTrip.moved){P.pos.copy(portalTrip.position);P.vel.set(0,0,0);P.vy=0;P.grounded=true;P.idle=0;cat.root.position.copy(P.pos);cam.target.copy(P.pos).y+=CHARACTER_DEFS[characterId].cameraHeight;portalTrip.moved=true;toast(portalTrip.upper?'云冠观景台 · 沿着圆台看看村庄吧':'回到古树的怀抱',3);}if(portalTrip.time>=.42)portalFade.classList.remove('active');if(portalTrip.time>=.85)portalTrip=null;}
+
   if(started&&!characterMenuOpen&&!equipment.open)life.update(dt,P.pos);
   snowTracks.update(dt,env.snow);
   for(const [id,actor]of roster.cache)snowTracks.walk(id,actor.root.position,actor.root.rotation.y,env.snow,id===characterId?P.grounded:true);
@@ -718,7 +723,7 @@ function frame() {
     if (b.t <= 0) { b.el.remove(); bubbles.splice(i, 1); }
   }
 
-  treeOcclusion.update(dt,camera,cat.getHeadWorld(new THREE.Vector3()));
+  treeOcclusion.update(dt,camera,cat.getHeadWorld(new THREE.Vector3()),P.pos);
   renderer.render(scene, camera);
   equipment.render();
   requestAnimationFrame(frame);
@@ -730,5 +735,5 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   snow.setPixelRatio?.(renderer.getPixelRatio());
 });
-window.__game = { fishing, roarContest, lake, talkToKeeper, P, cam, get catbus(){return catbus;}, sunShafts,detailStream, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment, fantasyEcology };
+window.__game = { fishing, roarContest, lake, talkToKeeper, P, cam, get catbus(){return catbus;},get elderSanctuary(){return elderSanctuary;}, sunShafts,detailStream, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment, fantasyEcology };
 $('startBtn').disabled=false; $('startBtn').textContent='走进森林 →'; $('loadStatus').textContent='';finishStartup();document.body.classList.remove('is-loading');

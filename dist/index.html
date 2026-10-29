@@ -203,6 +203,7 @@ body:not(.is-loading) #title .card,.load-error #title .card{position:absolute;in
 .title-block h1{font-family:ForestBrush,'STKaiti','KaiTi',serif!important;display:flex;align-items:center;gap:9px;writing-mode:vertical-rl;letter-spacing:5px!important;font-weight:400!important;font-size:clamp(38px,min(5vw,7.6vh),68px)!important;text-shadow:0 2px 3px #16332e,0 0 16px #ffd98b66}
 .title-names{font-size:.78em;letter-spacing:.15em}.title-dream{font-size:1.2em;letter-spacing:.14em}.title-dot{font-size:.44em;color:#e4bd72;line-height:.6}
 @media(max-width:700px){.title-block h1{writing-mode:horizontal-tb;font-size:clamp(28px,7vw,43px)!important;gap:4px;white-space:nowrap}.title-names,.title-dream{letter-spacing:.07em}}
+.portal-fade{position:fixed;inset:0;z-index:9999;background:#eaf3dd;opacity:0;pointer-events:none;transition:opacity .27s ease}.portal-fade.active{opacity:1;pointer-events:auto}
 </style>
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }</script>
 </head>

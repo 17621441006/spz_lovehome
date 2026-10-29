@@ -1,5 +1,6 @@
 // Terrain height field, ground mesh, wind-swept grass & flowers
 import * as THREE from 'three';
+import {villageLaneDistance} from './village-routes.js';
 import { toon, rng } from './toon.js';
 
 export const LAYOUT = {
@@ -59,7 +60,7 @@ export function randomIslandPoint(R, maxR = 47) {
   if (R() < 0.2) for (let i = 0; i < 12; i++) { const x = LAYOUT.lake.x + (R() - 0.5) * 60, z = LAYOUT.lake.z + (R() - 0.5) * 46; if (Math.hypot(x, z) > maxR && Math.hypot(x, z) < edgeRadius(x, z) - 2.5) return [x, z]; }
   const a = R() * Math.PI * 2, r = Math.sqrt(R()) * maxR; return [Math.cos(a) * r, Math.sin(a) * r];
 }
-export function catbusRouteDist(x,z){const r=LAYOUT.catbusRoute;return Math.abs(Math.hypot((x-r.x)/r.rx,(z-r.z)/r.rz)-1)*Math.min(r.rx,r.rz);}
+export const catbusRouteDist=villageLaneDistance;
 
 const ss = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
