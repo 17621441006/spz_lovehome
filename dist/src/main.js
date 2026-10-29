@@ -1,5 +1,5 @@
 import {TreeOcclusion} from './tree-occlusion.js';
-import {addElderTree,updateElderGlade} from './elder-tree.js';
+import {addElderTree,updateElderGlade,inElderRiver,onElderBridge} from './elder-tree.js';
 import {moveWithCollisions} from './collision.js';
 import {planStartup,finishStartup,detailStream} from './asset-stream.js';
 import {canopySnow,SunShafts} from './forest-weather.js';
@@ -542,6 +542,9 @@ function updateCat(dt) {
   if (inLakeWater(P.pos.x, P.pos.z) && !onPier(P.pos.x, P.pos.z, -0.12)) {
     P.pos.x = previousPosition.x; P.pos.z = previousPosition.z; P.vel.x *= -0.2; P.vel.z *= -0.2;
     if (splashCD < 0) { splashCD = 2.2; sound.waterNotice(); say(characterId === 'zangzangbao' ? '湖水好深…喵不要下去！' : '湖水很深，从栈桥上走吧。', catHead, 1.6); }
+  } else if (inElderRiver(P.pos.x, P.pos.z) && !onElderBridge(P.pos.x, P.pos.z, 0.12)) {
+    P.pos.x = previousPosition.x; P.pos.z = previousPosition.z; P.vel.x *= -0.2; P.vel.z *= -0.2;
+    if (splashCD < 0) { splashCD = 2.2; sound.waterNotice(); say(characterId === 'zangzangbao' ? '溪水好宽…喵要走树桥过去！' : '溪水环绕着古树，从东边的树桥走过去吧。', catHead, 1.6); }
   }
 
   // ground

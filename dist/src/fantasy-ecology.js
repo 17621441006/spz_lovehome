@@ -60,7 +60,7 @@ function preparePrototype(sceneRoot, targetHeight) {
   return wrapper;
 }
 
-// Pick a random point inside a forest roam zone that avoids tree trunks
+// Pick a random point inside a distant forest roam zone that avoids tree trunks
 function pickForestWaypoint(cfg) {
   for (let attempt = 0; attempt < 16; attempt++) {
     const a = Math.random() * Math.PI * 2;
@@ -145,28 +145,28 @@ export async function addFantasyEcology(scene) {
 
   // ---------------------------------------------------------------------------
   // 2. 乘风绒尾兽 · 噗噗 (Creature 02: Wind-Glider Squirrel-Fox "Pupu")
-  //    在旁边森林树冠间较高处自由随机穿行，玩家路过时主动飞过来打招呼对话
+  //    放置在远处深林高冠层自由穿行，不追逐玩家，仅在玩家路过树下时在空中打招呼
   // ---------------------------------------------------------------------------
   const pupuSpots = [
     {
-      cx: -14.5,
-      cz: -3.5,
-      roamRadius: 11.5,
-      minHeight: 2.6,
-      maxHeight: 4.2,
-      scale: 0.92,
-      speed: 2.85,
+      cx: 26.5,
+      cz: -17.5,
+      roamRadius: 10.5,
+      minHeight: 3.2,
+      maxHeight: 5.0,
+      scale: 0.9,
+      speed: 2.6,
       label: '乘风绒尾兽 · 噗噗',
     },
     {
-      cx: 15.5,
-      cz: 14.5,
-      roamRadius: 11.0,
-      minHeight: 2.7,
-      maxHeight: 4.3,
+      cx: -21.5,
+      cz: -28.5,
+      roamRadius: 10.5,
+      minHeight: 3.4,
+      maxHeight: 5.2,
       scale: 0.88,
-      speed: 2.7,
-      label: '林间绒尾兽 · 噗噗',
+      speed: 2.5,
+      label: '深林绒尾兽 · 噗噗',
     },
   ];
   for (const [idx, cfg] of pupuSpots.entries()) {
@@ -192,10 +192,7 @@ export async function addFantasyEcology(scene) {
       vel: new THREE.Vector3(0, 0, 1),
       waypoint: nextWp,
       wpTimer: 4.5,
-      state: 'wander', // 'wander' | 'greet'
-      greetTimer: 0,
       greetCD: 0,
-      hasSpokenThisVisit: false,
       wingL,
       wingR,
       armL,
@@ -234,7 +231,7 @@ export async function addFantasyEcology(scene) {
       baseScale: cfg.scale,
       phase: idx * 1.9,
       hopT: 0,
-       parasol,
+      parasol,
       flute,
       shroomMat: blueShroom?.material || null,
       dewMat: dewdrop?.material || null,
@@ -276,22 +273,78 @@ export async function addFantasyEcology(scene) {
   }
 
   // ---------------------------------------------------------------------------
-  // 5. 晴雨呼吸伞菇群 (Plant 02: Weather-Breathing Parasol Mushrooms) — 散落于倒木与林间阴凉处
+  // 5. 晴雨呼吸伞菇群 (Plant 02: Weather-Breathing Parasol Mushrooms)
+  //    第1处加长改造为横跨云冠古树环形宽溪的可通行「古树苔木桥」，其余散落远端林间
   // ---------------------------------------------------------------------------
   const shroomSpots = [
-    { x: -4.8, z: -9.8, scale: 1.0, yaw: 0.35 },
-    { x: -20.5, z: -6.5, scale: 1.05, yaw: 1.1 },
-    { x: 16.5, z: 24.5, scale: 0.96, yaw: -0.8 },
+    { x: -19.8, z: 0.0, scale: 1.0, yaw: 0.0, isBridge: true },
+    { x: -4.8, z: -9.8, scale: 1.0, yaw: 0.35, isBridge: false },
+    { x: 16.5, z: 24.5, scale: 0.96, yaw: -0.8, isBridge: false },
   ];
+  const origShroomXZ = [
+    [-0.82, 0.08],
+    [-0.46, -0.06],
+    [-0.26, 0.14],
+    [0.16, -0.08],
+    [0.56, 0.12],
+    [0.84, -0.06],
+  ];
+  const bridgeShroomTargetXZ = [
+    [-1.85, 1.02],
+    [-0.15, 1.05],
+    [1.65, 1.02],
+    [-1.55, -1.02],
+    [0.20, -1.05],
+    [1.85, -1.02],
+  ];
+
   for (const [idx, cfg] of shroomSpots.entries()) {
     const inst = protoWeatherShroom.clone(true);
-    const y = heightAt(cfg.x, cfg.z) - 0.05;
+    const y = heightAt(cfg.x, cfg.z) - (cfg.isBridge ? 0.18 : 0.05);
     inst.position.set(cfg.x, y, cfg.z);
     inst.rotation.y = cfg.yaw;
     inst.scale.setScalar(cfg.scale);
-    inst.name = '晴雨呼吸伞菇群';
+    inst.name = cfg.isBridge ? '古树苔木桥 · 晴雨呼吸伞菇' : '晴雨呼吸伞菇群';
+
+    if (cfg.isBridge) {
+      // 将倒木与青苔毯加长加宽为横跨环河的可行走树桥，并将6朵呼吸伞菇移至树桥南北两侧护栏边
+      const logMesh = inst.getObjectByName('Shroom_FallenLog');
+      const mossMesh = inst.getObjectByName('Shroom_LogMoss');
+      if (logMesh) {
+        logMesh.rotation.set(0, 0, -Math.PI / 2);
+        logMesh.scale.set(0.52, 3.25, 3.35);
+        logMesh.position.set(0, 0.05, 0);
+      }
+      if (mossMesh) {
+        mossMesh.scale.set(3.35, 0.55, 3.1);
+        mossMesh.position.set(0, 0.14, 0);
+      }
+      for (let k = 0; k < 6; k++) {
+        const dx = bridgeShroomTargetXZ[k][0] - origShroomXZ[k][0];
+        const dz = bridgeShroomTargetXZ[k][1] - origShroomXZ[k][1];
+        const dy = -0.22;
+        for (const prefix of ['Shroom_Cap_', 'Shroom_CoralCrown_', 'Shroom_Skirt_', 'Shroom_Stem_']) {
+          const part = inst.getObjectByName(prefix + k);
+          if (part) {
+            part.position.x += dx;
+            part.position.y += dy;
+            part.position.z += dz;
+          }
+        }
+        for (let pIdx = 0; pIdx < 3; pIdx++) {
+          const wp = inst.getObjectByName(`Shroom_WaterPearl_${k}_${pIdx}`);
+          if (wp) {
+            wp.position.x += dx;
+            wp.position.y += dy;
+            wp.position.z += dz;
+          }
+        }
+      }
+    } else {
+      colliders.push({ type: 'circle', x: cfg.x, z: cfg.z, r: 0.82 * cfg.scale, top: y + 1.5 * cfg.scale });
+    }
+
     group.add(inst);
-    colliders.push({ type: 'circle', x: cfg.x, z: cfg.z, r: 0.82 * cfg.scale, top: y + 1.5 * cfg.scale });
 
     const morphCaps = [];
     const waterPearls = [];
@@ -342,7 +395,7 @@ export async function addFantasyEcology(scene) {
   const PUPU_GREET_LINES = [
     '噗噗～看我在树冠间乘风滑翔！见到你真开心 🍃',
     '呼呼～你路过树林的风声，我老远就听见啦 🌼',
-    '毛茸茸的蒲公英大尾巴在发光，要一起在林间兜风吗 ✨',
+    '毛茸茸的蒲公英大尾巴在发光，祝你散步愉快 ✨',
   ];
 
   return {
@@ -369,9 +422,7 @@ export async function addFantasyEcology(scene) {
         }
       }
       for (const p of pupuInstances) {
-        if (Math.hypot(playerPos.x - p.root.position.x, playerPos.z - p.root.position.z) < 7.5) {
-          p.state = 'greet';
-          p.greetTimer = 6.5;
+        if (Math.hypot(playerPos.x - p.root.position.x, playerPos.z - p.root.position.z) < 8.5) {
           p.hopT = 0.75;
           sound?.chime?.(5);
           say?.(PUPU_GREET_LINES[Math.floor(Math.random() * PUPU_GREET_LINES.length)], p.headAnchor, 2.5, true);
@@ -425,78 +476,43 @@ export async function addFantasyEcology(scene) {
         }
       }
 
-      // 2. Update Pupu (free random high-canopy forest flight + swoop down to greet passing players)
+      // 2. Update Pupu (free random high-canopy flight in distant forest; greets from canopy without chasing player)
       for (const p of pupuInstances) {
         p.hopT = Math.max(0, p.hopT - dt);
         p.greetCD = Math.max(0, p.greetCD - dt);
 
         const pos = p.root.position;
         const distToPlayer = Math.hypot(playerPos.x - pos.x, playerPos.z - pos.z);
-        const playerNearZone = Math.hypot(playerPos.x - p.cfg.cx, playerPos.z - p.cfg.cz) < p.cfg.roamRadius + 6.5;
 
-        if (p.state === 'wander') {
-          // If player walks near the forest or near Pupu, swoop over to greet!
-          if ((distToPlayer < 10.5 || (playerNearZone && distToPlayer < 13.5)) && p.greetCD <= 0) {
-            p.state = 'greet';
-            p.greetTimer = 6.5;
-            p.hasSpokenThisVisit = false;
-          }
-        } else if (p.state === 'greet') {
-          p.greetTimer -= dt;
-          if (p.greetTimer <= 0 || distToPlayer > 15.0) {
-            p.state = 'wander';
-            p.greetCD = 14.0;
-            p.waypoint = pickForestWaypoint(p.cfg);
-            p.wpTimer = 5.0;
-          }
+        // When player walks nearby under the forest canopy, greet happily in place without chasing!
+        if (distToPlayer < 6.5 && p.greetCD <= 0) {
+          p.greetCD = 16.0;
+          p.hopT = 0.75;
+          sound?.chime?.(5);
+          say?.(
+            PUPU_GREET_LINES[Math.floor(Math.random() * PUPU_GREET_LINES.length)],
+            p.headAnchor,
+            2.6,
+            true
+          );
         }
 
-        let targetX, targetY, targetZ, moveSpeed;
-        if (p.state === 'greet') {
-          // Orbit gently around the player at comfortable talking distance & eye height
-          const orbitAngle = elapsed * 0.95 + p.phase;
-          const hoverR = 2.05;
-          targetX = playerPos.x + Math.cos(orbitAngle) * hoverR;
-          targetZ = playerPos.z + Math.sin(orbitAngle) * hoverR;
-          const gh = heightAt(targetX, targetZ);
-          targetY = Math.max(gh + 1.15, playerPos.y + 1.35) + Math.sin(elapsed * 3.2 + p.phase) * 0.18;
-          moveSpeed = p.cfg.speed * 1.45;
-
-          // Trigger greeting bubble & chime once it swoops close to the player
-          if (!p.hasSpokenThisVisit && distToPlayer < 3.4) {
-            p.hasSpokenThisVisit = true;
-            p.hopT = 0.75;
-            sound?.chime?.(5);
-            say?.(
-              PUPU_GREET_LINES[Math.floor(Math.random() * PUPU_GREET_LINES.length)],
-              p.headAnchor,
-              2.8,
-              true
-            );
-          }
-        } else {
-          // Free random wandering high among the forest trees
-          p.wpTimer -= dt;
-          const distWp = Math.hypot(p.waypoint.x - pos.x, p.waypoint.z - pos.z);
-          if (distWp < 1.6 || p.wpTimer <= 0) {
-            p.waypoint = pickForestWaypoint(p.cfg);
-            p.wpTimer = 3.5 + Math.random() * 4.0;
-          }
-          targetX = p.waypoint.x;
-          targetZ = p.waypoint.z;
-          const gh = heightAt(pos.x, pos.z);
-          const waveY = Math.sin(elapsed * 1.8 + p.phase) * 0.45;
-          targetY = Math.max(gh + p.cfg.minHeight, p.waypoint.y + waveY);
-          moveSpeed = p.cfg.speed;
+        p.wpTimer -= dt;
+        const distWp = Math.hypot(p.waypoint.x - pos.x, p.waypoint.z - pos.z);
+        if (distWp < 1.6 || p.wpTimer <= 0) {
+          p.waypoint = pickForestWaypoint(p.cfg);
+          p.wpTimer = 3.5 + Math.random() * 4.0;
         }
+        const targetX = p.waypoint.x;
+        const targetZ = p.waypoint.z;
+        const gh = heightAt(pos.x, pos.z);
+        const waveY = Math.sin(elapsed * 1.8 + p.phase) * 0.45;
+        const targetY = Math.max(gh + p.cfg.minHeight, p.waypoint.y + waveY);
 
-        // Smooth 3D steering with gentle tree trunk avoidance
         const desired = new THREE.Vector3(targetX - pos.x, targetY - pos.y, targetZ - pos.z);
         const distTarget = desired.length();
         if (distTarget > 0.001) {
-          desired.divideScalar(distTarget);
-          const speedFactor = p.state === 'greet' && distTarget < 1.8 ? Math.max(0.35, distTarget / 1.8) : 1.0;
-          desired.multiplyScalar(moveSpeed * speedFactor);
+          desired.divideScalar(distTarget).multiplyScalar(p.cfg.speed);
         }
 
         // Soft repulsion from tree trunks so Pupu weaves around trees naturally
@@ -514,27 +530,20 @@ export async function addFantasyEcology(scene) {
           }
         }
 
-        p.vel.lerp(desired, Math.min(1, dt * 3.2));
+        p.vel.lerp(desired, Math.min(1, dt * 3.0));
         pos.addScaledVector(p.vel, dt);
 
         const twirlY = p.hopT > 0 ? Math.sin((p.hopT / 0.75) * Math.PI) * 0.45 : 0;
         pos.y += twirlY * dt * 2.5;
 
-        // Face player when hovering close in greet mode, otherwise face flight direction
-        let desiredYaw;
-        if (p.state === 'greet' && distToPlayer < 3.6) {
-          desiredYaw = Math.atan2(playerPos.x - pos.x, playerPos.z - pos.z);
-        } else {
-          desiredYaw = Math.atan2(p.vel.x, p.vel.z);
-        }
+        const desiredYaw = Math.atan2(p.vel.x, p.vel.z);
         let dYaw = desiredYaw - p.root.rotation.y;
         dYaw = Math.atan2(Math.sin(dYaw), Math.cos(dYaw));
-        p.root.rotation.y += dYaw * Math.min(1, dt * 5.0) + (p.hopT > 0 ? dt * Math.PI * 2.6 : 0);
+        p.root.rotation.y += dYaw * Math.min(1, dt * 4.5) + (p.hopT > 0 ? dt * Math.PI * 2.6 : 0);
         p.root.rotation.z = THREE.MathUtils.clamp(-dYaw * 0.35, -0.35, 0.35);
         p.root.rotation.x = THREE.MathUtils.clamp(-p.vel.y * 0.12, -0.28, 0.28);
 
-        const flapFreq = p.state === 'greet' ? 7.5 : 5.4;
-        const flap = Math.sin(elapsed * flapFreq + p.phase) * 0.22 * windBoost;
+        const flap = Math.sin(elapsed * 5.4 + p.phase) * 0.22 * windBoost;
         if (p.wingL) p.wingL.rotation.y = flap;
         if (p.wingR) p.wingR.rotation.y = -flap;
         if (p.coreMat) p.coreMat.emissiveIntensity = 1.0 + night * 2.0 + Math.sin(elapsed * 3.0) * 0.25;
