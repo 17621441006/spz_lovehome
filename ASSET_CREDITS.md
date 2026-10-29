@@ -83,3 +83,10 @@ https://quaternius.com/packs/stylizednaturemegakit.html
 - `magical+lava+rock+3d+model.glb` → `glade-rock.glb` / `glade-rock-lod.glb`：用户补充的魔法岩石，近景 140,000 三角面，远景 14,000 三角面。
 - 两份模型均保留原始 UV 和贴图；采用带 UV 约束的网格简化。溪流、低矮蘑菇与苔石为工程内程序几何。
 - 既有 `elder-tree.glb` 为用户提供的棕色古树，保持原始 46,643 三角面。本次调整位置和地形，不裁切树干与树冠。
+
+
+## v20 标题字体与封面
+
+- 标题字体：Ma Shan Zheng，来源 https://github.com/googlefonts/mashanzheng ，SIL Open Font License 1.1。只做字符子集化，许可证见 `dist/assets/fonts/OFL-MaShanZheng.txt`。
+- C 款封面：根据原封面、用户确认的 C 款草图与用户钻戒参考照片，用内置 Imagegen 编辑；局部动画由项目脚本生成。
+- 小司短发：由仓库原小司网格和贴图重新整理，原始 GLB 保留；首饰、发带与闪光由 Three.js 几何实现。

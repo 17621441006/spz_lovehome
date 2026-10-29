@@ -1,5 +1,5 @@
 """Deterministic local character animation; no camera transform.
-Run with Python (numpy/scipy/Pillow) and ffmpeg. Coordinates use approved 1672px art.
+Run with Python (numpy/scipy/Pillow) and ffmpeg. Coordinates use the approved C cover at 1672px. Ring glints are baked into both video sizes.
 """
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
@@ -22,12 +22,12 @@ matte=np.asarray(silhouette.filter(ImageFilter.GaussianBlur(5)),dtype=np.float32
 body=np.maximum(belly,cat*.82)*matte*(1-np.minimum(1,boy*4))*(1-np.minimum(1,girl*4))
 # Smooth mask reaches zero well before any scenery; every background pixel stays fixed.
 closed=Image.fromarray(source.copy()); d=ImageDraw.Draw(closed)
-for cx,cy,rx,ry,skin in [(553,476,6,7,(235,166,120)),(579,467,5,7,(234,167,119)),(1128,508,6,8,(243,178,137)),(1156,521,7,8,(244,180,140))]:
+for cx,cy,rx,ry,skin in [(553,476,6,7,(235,166,120)),(579,467,5,7,(234,167,119)),(1120,510,6,8,(243,178,137)),(1150,523,7,8,(244,180,140))]:
     d.ellipse((cx-rx,cy-ry,cx+rx,cy+ry),fill=skin)
     d.arc((cx-rx,cy-4,cx+rx,cy+3),0,180,fill=(79,44,32),width=2)
 closed=np.asarray(closed)
 eye_masks=[]
-for eyes in [[(553,476,7,8),(579,467,6,8)],[(1128,508,7,9),(1156,521,8,9)]]:
+for eyes in [[(553,476,7,8),(579,467,6,8)],[(1120,510,7,9),(1150,523,8,9)]]:
     m=Image.new('L',(w,h));dr=ImageDraw.Draw(m)
     for cx,cy,rx,ry in eyes:dr.ellipse((cx-rx,cy-ry,cx+rx,cy+ry),fill=255)
     eye_masks.append(np.asarray(m.filter(ImageFilter.GaussianBlur(.55)),dtype=np.float32)/255)
@@ -46,13 +46,26 @@ def render(t):
         pulse=(.5+.5*np.sin(2*np.pi*t/(3 if i%2 else 4)+i*1.7))**2
         glow=np.exp(-((X-cx-1.5*np.sin(2*np.pi*t/12+i))**2+(Y-cy-2*np.sin(2*np.pi*t/6+i))**2)/32)
         frame+=glow[...,None]*np.array([35,29,10])*pulse
+    # A small bright white/gold four-point glint anchored to her left ring finger.
+    # Two gentle flashes per six seconds, not a screen-wide light or camera effect.
+    phase=t%6
+    pulse=max(0,1-abs(phase-1.8)/.42)**2+.65*max(0,1-abs(phase-2.45)/.26)**2
+    rx,ry=1170.5,554.0
+    ix,iy=int(rx),int(ry)
+    rx+=gx*girl[iy,ix]
+    ry-=breath*body[iy,ix]-.7*np.sin(2*np.pi*t/12+1)*girl[iy,ix]
+    dx=X-rx;dy=Y-ry
+    halo=np.exp(-(dx*dx+dy*dy)/11)*.30
+    cross=np.exp(-dx*dx/.55-dy*dy/28)+np.exp(-dy*dy/.55-dx*dx/22)
+    frame+=(halo+cross)[...,None]*np.array([170,185,200])*pulse
     return np.uint8(np.clip(frame,0,255))
 if __name__=='__main__':
     out=Path(sys.argv[1]) if len(sys.argv)>1 else root/'dist/assets/loading-night.mp4'
     p=subprocess.Popen(['ffmpeg','-v','error','-y','-f','rawvideo','-pixel_format','rgb24','-video_size',f'{w}x{h}','-framerate','24','-i','-','-vf','scale=1920:1080','-an','-c:v','libx264','-preset','fast','-crf','20','-pix_fmt','yuv420p','-movflags','+faststart',str(out)],stdin=subprocess.PIPE)
     for n in range(288):
         f=render(n/24);p.stdin.write(f.tobytes())
-        if n in (0,36,60,72):Image.fromarray(f).save(f'/workspace/scratch/58ea52c8b74a/motion15-{n}.jpg')
+        if n in (0,36,43,60,72):
+            qa=root/'qa-output/cover';qa.mkdir(parents=True,exist_ok=True);Image.fromarray(f).save(qa/f'frame-{n}.png')
         if n%48==0:print(f'frame {n}/288',flush=True)
     p.stdin.close();assert p.wait()==0
     # Validate stationary environment before encoding; character area must move.
@@ -60,4 +73,7 @@ if __name__=='__main__':
     assert np.array_equal(a[:160],b[:160]),'Sky must stay fixed'
     assert np.array_equal(a[100:400,1300:1550],b[100:400,1300:1550]),'Treehouse must stay fixed'
     assert np.abs(a[300:550,700:1000].astype(float)-b[300:550,700:1000]).mean()>.1
-    print('PASS: sky/treehouse fixed; belly moves; separate blink schedules; 12s seamless periodic motion')
+    quiet=render(0)[547:561,1164:1178].mean();flash=render(1.8)[547:561,1164:1178].mean()
+    assert flash>quiet+3,'Diamond must visibly sparkle'
+    assert np.max(np.abs(render(0).astype(int)-render(12).astype(int)))<=1,'Loop must close'
+    print('PASS: sky/treehouse fixed; belly moves; separate blink schedules; diamond flashes; seamless 12s loop')

@@ -57,11 +57,11 @@ sun.shadow.normalBias = 0.03;
 scene.add(sun, sun.target);
 
 const roster=new CharacterRoster(scene);
-let savedCharacter='zangzangbao';try{savedCharacter=localStorage.getItem('zzb-forest-character')||savedCharacter;}catch{}
+let savedCharacter='xiaosi';try{savedCharacter=localStorage.getItem('zzb-forest-character')||savedCharacter;}catch{}
 const requestedCharacter=params.get('character')||savedCharacter;
-const initialCharacter=CHARACTER_DEFS[requestedCharacter]?requestedCharacter:'zangzangbao';
+const initialCharacter=CHARACTER_DEFS[requestedCharacter]?requestedCharacter:'xiaosi';
 const worldFiles=['forest-tree','forest-tree-lod','broadleaf-tree','broadleaf-tree-lod','fantasy-tree','fantasy-tree-lod','treehouse','shrine-lod','pagoda-lod','temple-lod','japanese-house','sakura-lod','crystal-lod'].map(n=>'assets/'+n+'.glb');
-const actorFile=initialCharacter==='zangzangbao'?'assets/cat-rig.glb':'assets/characters/'+initialCharacter+'.glb';
+const actorFile=initialCharacter==='zangzangbao'?'assets/cat-rig.glb':'assets/characters/'+(initialCharacter==='xiaosi'?'xiaosi-c':initialCharacter)+'.glb';
 let savedOutfits={};try{savedOutfits=JSON.parse(localStorage.getItem('zzb-outfits-v12')||'{}');}catch{}
 const savedOutfit=savedOutfits[initialCharacter],outfitFile=savedOutfit&&savedOutfit!=='original'?'assets/characters/'+savedOutfit+'.glb':null;
 planStartup([...worldFiles,...FANTASY_ASSET_FILES,actorFile,...(outfitFile?[outfitFile]:[])]);
@@ -704,7 +704,7 @@ function frame() {
   if(!sound.customAudio){const label='当前：原创 · '+sound.currentTrack+'（四首轮播）';if($('musicName').textContent!==label)$('musicName').textContent=label;}
 
   // UI
-  const region=lakeDist(P.pos.x,P.pos.z)<LAYOUT.lake.r+14?'星湖 · 阿渔伯的钓场，湖底住着奇怪的鱼':Math.hypot(P.pos.x,P.pos.z)>46?'云海崖畔 · 森林到此，远处只有风与云':P.pos.x< -34?'苔岩坡 · 沿着山脊慢慢走':P.pos.x< -20&&P.pos.z>24?'风起草甸 · 留一片开阔的绿':Math.abs(P.pos.x+7)<7&&P.pos.z< -23?'林间谷地 · 风从低处吹来':P.pos.x>18&&P.pos.z>9?'东南 · 稻荷山道与山顶神社':Math.hypot(P.pos.x+6,P.pos.z-21)<12?'树屋小院 · 煤球们的秘密基地':Math.hypot(P.pos.x-8,P.pos.z-5)<8?'水光池塘 · 听一片叶子落水':Math.hypot(P.pos.x-13.2,P.pos.z+8.2)<9?'龙猫车站 · 等一班夏天的车':'风与森林 · 去发现一颗小小橡果';
+  const region=lakeDist(P.pos.x,P.pos.z)<LAYOUT.lake.r+14?'星湖 · 阿渔伯的钓场，湖底住着奇怪的鱼':Math.hypot(P.pos.x,P.pos.z)>46?'云海崖畔 · 森林到此，远处只有风与云':P.pos.x< -34?'苔岩坡 · 沿着山脊慢慢走':P.pos.x< -20&&P.pos.z>24?'风起草甸 · 留一片开阔的绿':Math.abs(P.pos.x+7)<7&&P.pos.z< -23?'林间谷地 · 风从低处吹来':P.pos.x>18&&P.pos.z>9?'东南 · 稻荷山道与山顶神社':Math.hypot(P.pos.x+6,P.pos.z-21)<12?'树屋小院 · 煤球们的秘密基地':Math.hypot(P.pos.x-8,P.pos.z-5)<8?'水光池塘 · 听一片叶子落水':Math.hypot(P.pos.x-13.2,P.pos.z+8.2)<9?'龙猫车站 · 等一班夏天的车':'司涌脏·千寻 · 去发现一颗小小橡果';
   $('place').textContent='✦ '+region;
   $('bKick1').disabled=$('bKick2').disabled=!!cat.actionQueueFull||!P.grounded||switching||characterMenuOpen;
   if (toastTimer > 0) { toastTimer -= dt; if (toastTimer <= 0) $('toast').classList.remove('show'); }

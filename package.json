@@ -1,7 +1,7 @@
 {
   "name": "totoro-cat",
   "version": "2.0.0",
-  "description": "脏脏包 · 风与森林",
+  "description": "司涌脏·千寻",
   "main": "index.js",
   "scripts": {
     "check": "node scripts/check.mjs"

@@ -18,6 +18,7 @@ export class EquipmentPanel {
   document.getElementById('fanEquip').onclick=()=>{this.fan=!this.fan;this.apply();this.sync();this.save();};
   document.getElementById('outfitEquip').onclick=async()=>{const {id}=this.getCharacter(),def=OUTFITS[id],actor=this.getActor();if(!def)return;const button=document.getElementById('outfitEquip');if(actor.ensureOutfit&&!actor.outfitMeshes){button.disabled=true;button.textContent='加载衣装…';try{await actor.ensureOutfit();}catch(error){button.disabled=false;button.textContent='加载失败 · 点击重试';return;}if(actor!==this.getActor()){button.disabled=false;this.sync();return;}}this.outfits[id]=actor.outfit===def.id?'original':def.id;this.apply();this.sync();this.save();button.disabled=false;};
   document.getElementById('expressionChoice').onchange=e=>{this.expression=e.target.value;this.apply();this.save();};
+  document.getElementById('portraitFull').onclick=()=>{this.jewelryFocus=null;this.sync();};
   document.getElementById('portraitLeft').onclick=()=>{this.angle-=Math.PI/4;};
   document.getElementById('portraitRight').onclick=()=>{this.angle+=Math.PI/4;};
   this.el.addEventListener('click',e=>{if(e.target===this.el)this.setOpen(false);});
@@ -35,6 +36,7 @@ export class EquipmentPanel {
  apply(){const actor=this.getActor();actor.setFanEquipped?.(this.fan);actor.setExpression?.(this.expression);actor.setOutfit?.(this.outfits[this.getCharacter().id]||'original');}
  sync(){
   const {id,name}=this.getCharacter(),isCat=id==='zangzangbao';
+  document.getElementById('portraitFull').hidden=!this.jewelryFocus;
   document.getElementById('equipmentName').textContent=name;
   document.getElementById('fanEquip').disabled=!isCat;
   document.getElementById('fanEquip').textContent=isCat?(this.fan?'卸下折扇':'装备折扇'):'脏脏包的折扇';
@@ -47,10 +49,11 @@ export class EquipmentPanel {
   document.getElementById('bagCount').textContent=`橡果 ${collected.count} / ${collected.total}`;
   document.getElementById('heldSlot').innerHTML=this.fan&&isCat?document.querySelector('.fan-icon').outerHTML+'<small>已装备</small>':'<span class="empty-hand">手持空位</span>';
   for(const b of this.el.querySelectorAll('[data-bag-tab]')){b.classList.toggle('active',b.dataset.bagTab===this.tab);b.setAttribute('aria-pressed',String(b.dataset.bagTab===this.tab));}
-  const items=[];const outfit=OUTFITS[id];if(outfit&&this.tab!=='collection')items.push({id:'outfit',icon:'👘',name:outfit.name,count:1});if(this.tab!=='collection')items.push({id:'fan',icon:'🪭',name:'清风折扇',count:1});if(this.tab!=='equipment'&&collected.count>0)items.push({id:'acorn',icon:'🌰',name:'橡果',count:collected.count});
+  const items=[];if(id==='xiaosi'&&this.tab!=='collection')items.push({id:'diamond',icon:'💍',name:'璀璨钻戒',count:1},{id:'necklace',icon:'✧',name:'金叶项链',count:1});const outfit=OUTFITS[id];if(outfit&&this.tab!=='collection')items.push({id:'outfit',icon:'👘',name:outfit.name,count:1});if(this.tab!=='collection')items.push({id:'fan',icon:'🪭',name:'清风折扇',count:1});if(this.tab!=='equipment'&&collected.count>0)items.push({id:'acorn',icon:'🌰',name:'橡果',count:collected.count});
   if(!items.some(i=>i.id===this.selected))this.selected=items[0]?.id||null;
   const grid=document.getElementById('bagGrid');grid.replaceChildren();
-  for(let i=0;i<12;i++){const item=items[i],b=document.createElement(item?'button':'div');b.className='bag-cell'+(item?.id===this.selected?' selected':'');if(item){b.setAttribute('aria-label',`${item.name}，${item.count}个`);b.innerHTML=`<span>${item.id==='fan'?document.querySelector('.fan-icon').outerHTML:item.icon}</span><small>${(item.id==='fan'&&isCat&&this.fan)||(item.id==='outfit'&&this.getActor().outfit===outfit?.id)?'✓':item.count}</small>`;b.onclick=()=>{this.selected=item.id;this.sync();};}else b.setAttribute('aria-hidden','true');grid.appendChild(b);}
+  for(let i=0;i<12;i++){const item=items[i],b=document.createElement(item?'button':'div');b.className='bag-cell'+(item?.id===this.selected?' selected':'');if(item){b.setAttribute('aria-label',`${item.name}，${item.count}个`);b.innerHTML=`<span>${item.id==='fan'?document.querySelector('.fan-icon').outerHTML:item.icon}</span><small>${(item.id==='fan'&&isCat&&this.fan)||(item.id==='outfit'&&this.getActor().outfit===outfit?.id)||['diamond','necklace'].includes(item.id)?'✓':item.count}</small>`;b.onclick=()=>{this.selected=item.id;this.jewelryFocus=['diamond','necklace'].includes(item.id)?item.id:null;this.sync();};}else b.setAttribute('aria-hidden','true');grid.appendChild(b);}
+  document.getElementById('jewelrySlot').innerHTML=id==='xiaosi'?'首饰<br>💍<small>钻戒 · 金项链</small>':'挂饰<br>〰';
   const fanSelected=this.selected==='fan';document.getElementById('itemName').textContent=fanSelected?'清风折扇':this.selected==='acorn'?'林间橡果':'行囊里还没有收集物';
   document.getElementById('itemDescription').textContent=fanSelected?'站定轻摇，跑动收拢。':this.selected==='acorn'?`已找到 ${collected.count} 颗，集齐 ${collected.total} 颗会发生森林魔法。`:'沿着林间小路，去找一颗橡果吧。';
   document.getElementById('fanEquip').hidden=!fanSelected;document.getElementById('fanSlot').hidden=!fanSelected;
@@ -60,6 +63,8 @@ export class EquipmentPanel {
   document.getElementById('outfitEquip').textContent=equipped?'换回原装':'穿上'+(outfit?.name||'');
   document.getElementById('outfitEquip').setAttribute('aria-pressed',String(!!equipped));
   document.getElementById('outfitSlot').innerHTML='衣装<br>👘<small>'+(equipped?outfit.name:'原装')+'</small>';
+  if(this.selected==='diamond'){document.getElementById('itemName').textContent='璀璨钻戒 · 已佩戴';document.getElementById('itemDescription').textContent='椭圆主钻，细碎铺镶。指尖的星光，会在散步时轻轻闪亮。左侧可近看钻戒。';}
+  if(this.selected==='necklace'){document.getElementById('itemName').textContent='金叶项链 · 已佩戴';document.getElementById('itemDescription').textContent='一片金色的小叶子，陪你走进森林。左侧可近看项链。';}
   if(outfitSelected){document.getElementById('itemName').textContent=outfit.name;document.getElementById('itemDescription').textContent=outfit.description+(equipped?' 当前已穿上。':' 点击穿上，左侧可旋转查看。');}
 
 
@@ -68,7 +73,7 @@ export class EquipmentPanel {
   if(value===this.open)return;this.open=value;this.el.hidden=!value;document.body.classList.toggle('equipment-open',value);
   document.getElementById('bEquipment').setAttribute('aria-expanded',String(value));
   this.onToggle(value);
-  if(value){if(document.pointerLockElement)document.exitPointerLock();this.apply();this.sync();document.getElementById('equipmentClose').focus();}else document.getElementById('bEquipment').focus();
+  if(value){this.jewelryFocus=null;if(document.pointerLockElement)document.exitPointerLock();this.apply();this.sync();document.getElementById('equipmentClose').focus();}else document.getElementById('bEquipment').focus();
  }
  render(){
   if(!this.open)return;
@@ -78,7 +83,10 @@ export class EquipmentPanel {
   const viewport=renderer.getViewport(new THREE.Vector4()),scissor=renderer.getScissor(new THREE.Vector4()),scissorTest=renderer.getScissorTest(),auto=renderer.autoClear;
   try{
    this.scene.add(root);root.position.set(0,0,0);root.rotation.set(0,this.angle,0);if(actor.model)actor.model.rotation.y=0;root.updateMatrixWorld(true);
-   this.camera.aspect=r.width/r.height;this.camera.position.set(0,.84,3.15);this.camera.lookAt(0,.73,0);this.camera.updateProjectionMatrix();
+   this.camera.aspect=r.width/r.height;this.camera.position.set(0,.84,3.15);this.camera.lookAt(0,.73,0);
+   if(actor.id==='xiaosi'&&this.jewelryFocus==='diamond'){const focus=actor.appearance.stone.getWorldPosition(new THREE.Vector3());this.camera.position.copy(focus).add(new THREE.Vector3(0,.025,.29));this.camera.lookAt(focus);}
+   if(actor.id==='xiaosi'&&this.jewelryFocus==='necklace'){const focus=actor.bones.Chest.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0,.075,.04));this.camera.position.copy(focus).add(new THREE.Vector3(0,.035,.70));this.camera.lookAt(focus);}
+   this.camera.updateProjectionMatrix();
    renderer.setSize(r.width,r.height,false);renderer.setViewport(0,0,r.width,r.height);renderer.setScissorTest(false);renderer.autoClear=true;renderer.render(this.scene,this.camera);
   }finally{
    parent.add(root);root.position.copy(p);root.quaternion.copy(q);root.scale.copy(s);if(mq)actor.model.quaternion.copy(mq);root.updateMatrixWorld(true);

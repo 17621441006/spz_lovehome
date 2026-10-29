@@ -2,8 +2,9 @@ import {loadGLB} from './asset-stream.js';
 import * as THREE from 'three';
 import {solveLimb,setWorldQuaternion} from './limb-ik.js';
 import {XIAOYONG_RUN} from './xiaoyong-run.js';
+import {dressXiaosi} from './xiaosi-style.js';
 
-export async function loadHumanCharacter(id){return new HumanCharacter(await loadGLB(`assets/characters/${id}.glb`),id);}
+export async function loadHumanCharacter(id){return new HumanCharacter(await loadGLB(`assets/characters/${id==='xiaosi'?'xiaosi-c':id}.glb`),id);}
 
 export class HumanCharacter{
  constructor(gltf,id){
@@ -12,6 +13,7 @@ export class HumanCharacter{
    for(const m of Array.isArray(o.material)?o.material:[o.material]){m.metalness=0;m.roughness=.88;m.metalnessMap=null;m.roughnessMap=null;if(m.normalScale)m.normalScale.set(.5,.5);m.emissive=new THREE.Color('#fff3e0');m.emissiveMap=m.map;m.emissiveIntensity=.055;m.userData.forestGlow=.055;this.materials.push(m);}
    if(o.isSkinnedMesh){this.skeletons.add(o.skeleton);const ids=[],idx=o.geometry.attributes.skinIndex,w=o.geometry.attributes.skinWeight;for(let i=0;i<idx.count;i+=5){let total=0;for(let j=0;j<4;j++)if(/^(Left|Right)(Foot|Toe)$/.test(o.skeleton.bones[idx.getComponent(i,j)].name))total+=w.getComponent(i,j);if(total>.4)ids.push(i);}this.contacts.push({mesh:o,ids});}
   });
+  if(id==='xiaosi')dressXiaosi(this);
   this.model.updateMatrixWorld(true);this.footRest={};for(const side of ['Left','Right'])this.footRest[side]=this.bones[side+'Foot'].getWorldQuaternion(new THREE.Quaternion());
   this.mixer=new THREE.AnimationMixer(this.model);this.actions={};this.pose=[];const clips=gltf.animations.map(c=>c.clone());
   // Xiaoyong's original file only contains a walking cycle. Retarget the existing
@@ -39,9 +41,10 @@ export class HumanCharacter{
  getHeadWorld(v=new THREE.Vector3()){return this.bones.Head.getWorldPosition(v);}
  modelPoint(x,y,z){return this.model.localToWorld(new THREE.Vector3(x,y,z));}
  update(dt,s){
+  this.appearance?.update(dt);
   this.cooldown=Math.max(0,this.cooldown-dt);if(!s.grounded)this.oneShot=null;
   const moving=s.speed>.12,running=(s.running??s.speed>1.7)&&s.speed>.35,name=this.oneShot||(!s.grounded?'hop':moving?(running?'mesh_run':'walk'):s.idle>7?'sit_idle':'idle');this.play(name);
-  if(name==='walk'||name==='mesh_run'){const max=this.id==='xiaoyong'?(name==='walk'?6.2:6.4):(name==='walk'?3.1:1.6),target=THREE.MathUtils.clamp(s.speed/this.gaitSpeed[name],.30,max);this.gaitRate+=(target-this.gaitRate)*(1-Math.exp(-12*dt));this.actions[name].timeScale=this.gaitRate;}
+  if(name==='walk'||name==='mesh_run'){const max=this.id==='xiaoyong'?(name==='walk'?6.2:6.4):(name==='walk'?4.14:1.6),target=THREE.MathUtils.clamp(s.speed/this.gaitSpeed[name],.30,max);this.gaitRate+=(target-this.gaitRate)*(1-Math.exp(-12*dt));this.actions[name].timeScale=this.gaitRate;}
   // The menu turns the parent toward the camera. Correct the model's local yaw
   // to the actual travel vector immediately, while the parent's turn eases out.
   // This prevents a newly selected avatar moonwalking through its first turn.

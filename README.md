@@ -1,6 +1,6 @@
-# 脏脏包 · 风与森林
+# 司涌脏·千寻
 
-一个以脏脏包、小涌和小司为主角的 Three.js 森林探索游戏。当前源码对应 v19（2026-10-29）。
+一个以脏脏包、小涌和小司为主角的 Three.js 森林探索游戏。当前源码对应 v20（2026-10-29）。
 
 ## 本地运行
 
@@ -27,6 +27,20 @@ python -m http.server 8642 --directory dist
 - 「天气」切换晴天、雨雪、昼夜；「操作说明」查看控制方式。
 - 「配乐」调整音量，也能选择本地音频；本地文件不上传，刷新后需重选。
 - 地址末尾加 `?q=low` 使用低画质；加 `?q=high` 使用高画质。
+
+## v20 更新（C 款小司与指尖星光）
+
+- 首页采用已确认的 C 款半扎齐肩微卷，金叶项链与椭圆钻戒；钻戒每 6 秒短暂双闪，保留慢呼吸、错峰眨眼和静止背景。
+- 轻量首页视频 `dist/assets/loading-lite.mp4` 为 720p / 12 秒 / 约 549 KB；原尺寸视频保存在 `dist/assets/loading-night.mp4`，快速封面为 `loading-poster.webp`。
+- 游戏内小司的齐肩卷发另存为 `xiaosi-c.glb`，保留原文件、脸部、骨骼与动作。金项链绑定胸骨、钻戒绑定左手，站立、走跑、坐下与跳舞时跟随；独立钻石闪光。行囊中的两件首饰可点击近看，点击「全身」返回。
+- 角色选择顺序为小司、小涌、脏脏包。没有历史选择时默认小司，有历史选择时仍记住上一次角色。
+- 小司步行 1.15 → 1.5333、跑步 3 → 4；小涌步行保持 2.5，跑步 9.2 → 6.1333。步频根据实际位移同步。
+- 标题暂改为「司涌脏·千寻」，使用本地精简毛笔字体（约 4 KB），保留字体许可证。
+- 保留 `cec3f2b` 的 Blender v19 猫咪、古树水道、蘑菇树桥及远林布置。
+
+本次验证：`node scripts/style20-check.mjs`、`human-motion-check.mjs`、`main-boot-check.mjs`、`wardrobe-ui-check.mjs`、`cat19-check.mjs`，以及多角度 CPU 模型渲染与封面循环/静止背景/闪光数值检查。预览浏览器不能建立 WebGL 上下文，实时 GPU 效果与设备帧率未验证。
+
+封面使用内置 Imagegen 编辑，编辑目标为原完整封面，C 款草图为发型参考，用户提供的戒指照片为首饰参考。提示词要点：只替换右下女生为 C 款栗色半扎齐肩微卷与象牙发带；加入金叶项链、左手无名指椭圆钻戒；保持人物比例、坐姿、脸、服装、月亮、龙猫、猫咪、男生、树屋、鸟居和整个构图不变；不增加文字或镜头运动。完整动画由 `scripts/render-loading-wallpaper.py` 制作。
 
 ## v19 更新（脏脏包重新绑定）
 
@@ -71,6 +85,7 @@ npm ci
 npm run check
 node scripts/cat19-check.mjs
 node scripts/cat-stretch.mjs
+node scripts/style20-check.mjs
 node scripts/human-motion-check.mjs
 node scripts/glade18-check.mjs
 node scripts/catbus-check.mjs
