@@ -10,3 +10,6 @@ console.log({height:tree.userData.elderTree.height,bridgeLanding:p.toArray(),ent
 const crown=s.canopy;assert(crown.seat.y>s.deckY+4);assert(Number.isFinite(crown.sample(crown.seat.x,crown.seat.z)));assert(Math.abs(groundAt(crown.seat.x,crown.seat.z,crown.seat.y+.1)-crown.seat.y)<.001);
 const down=new THREE.Raycaster(crown.seat.clone().add(new THREE.Vector3(0,2,0)),new THREE.Vector3(0,-1,0),0,3);const leaf=down.intersectObject(tree,true)[0];assert(leaf&&Math.abs(leaf.point.y-crown.seat.y)<.25,'Leaf landing must rest on real foliage');
 s.update(.1,crown.seat);let fromCrown;for(let i=0;i<50;i++)fromCrown=s.update(1/60,s.portals[2])||fromCrown;assert(fromCrown&&fromCrown.position.distanceTo(s.arrivals[1])<.001);console.log({canopySeat:crown.seat.toArray(),realFoliageError:leaf.point.y-crown.seat.y,crownReturn:'PASS',lookupGrid:crown.gridSize});
+// No spike, branch or leaf triangle may cross the top of the return disc.
+for(let i=0;i<49;i++){const a=i*2.39996,r=Math.sqrt(i/49)*.91,pad=s.portals[2],origin=new THREE.Vector3(pad.x+Math.cos(a)*r,pad.y+6,pad.z+Math.sin(a)*r),ray=new THREE.Raycaster(origin,new THREE.Vector3(0,-1,0),0,6.04);assert.equal(ray.intersectObject(tree,true).length,0,'Return disc must have clear space above it');}
+console.log('PASS: return pad clear at 49 surface samples');

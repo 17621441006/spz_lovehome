@@ -3,7 +3,7 @@ import {THREE} from './headless.mjs';
 import {loadHumanCharacter} from '../dist/src/human-character.js';
 const actor=await loadHumanCharacter('xiaosi');
 const state=process.argv[2]||'idle',speed=state==='run'?4:state==='walk'?1.533333:0;
-for(let i=0;i<80;i++)actor.update(1/60,{speed:speed,grounded:true,idle:state==='sit'?10:0,running:state==='run',actualVelocity:new THREE.Vector3(0,0,speed)});
+for(let i=0;i<80;i++)actor.update(1/60,{speed:speed,grounded:true,idle:0,sitting:state==='sit',running:state==='run',actualVelocity:new THREE.Vector3(0,0,speed)});
 actor.root.updateMatrixWorld(true);for(const sk of actor.skeletons)sk.update();
 const out='qa-output/xiaosi-'+state;fs.mkdirSync(out,{recursive:true});const meshes=[];
 actor.root.traverse(m=>{if(!m.isMesh||!m.visible||m.material.opacity===0)return;const g=m.geometry,v=new THREE.Vector3(),p=[];for(let i=0;i<g.attributes.position.count;i++){m.getVertexPosition(i,v).applyMatrix4(m.matrixWorld);p.push(v.x,v.y,v.z);}const mat=m.material;let image=null;if(mat.userData.image){image='texture-'+meshes.length+'.jpg';fs.writeFileSync(out+'/'+image,Buffer.from(mat.userData.image.data||mat.userData.image));}meshes.push({name:m.name,p,uv:Array.from(g.attributes.uv?.array||new Float32Array(g.attributes.position.count*2)),index:Array.from(g.index?.array||Array.from({length:g.attributes.position.count},(_,i)=>i)),image,color:[...mat.color.clone().convertLinearToSRGB().toArray(),1]});});

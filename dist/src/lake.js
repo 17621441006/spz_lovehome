@@ -149,9 +149,11 @@ function buildKeeper() {
     const hand = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), skin); hand.position.y = -0.64; arm.add(hand);
     arm.rotation.z = s * 0.18; arms.push(arm);
   }
-  // fishing rod over the right shoulder
-  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.03, 2.6, 5), woodDark()); rod.position.set(0, 0.6, 0.1); rod.rotation.x = -0.45; arms[1].add(rod);
-  arms[1].rotation.x = -0.5;
+  // A shoulder-carried pole stays outside the head and follows the torso,
+  // independently of the greeting arm. The tip extends behind his right side.
+  const rodA=new THREE.Vector3(-.43,1.28,.65),rodB=new THREE.Vector3(-.43,1.88,-2.05),rodDir=rodB.clone().sub(rodA);
+  const rod=new THREE.Mesh(new THREE.CylinderGeometry(.012,.03,rodDir.length(),8),woodDark());rod.name='阿渔伯 · 肩扛鱼竿';rod.position.copy(rodA).add(rodB).multiplyScalar(.5);rod.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),rodDir.normalize());body.add(rod);
+  arms[1].rotation.x=-1.45;arms[1].rotation.z=-.1;
   root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   return { root, body, head, eyes, arms };
 }

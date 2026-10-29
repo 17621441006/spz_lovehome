@@ -60,7 +60,7 @@ export class ModelCat{
   this.cooldown=Math.max(0,this.cooldown-dt);this.meow=Math.max(0,this.meow-dt);this.time+=dt;
   if(!s.grounded){this.oneShot=null;this.queuedAction=null;this.chainReady=null;}
   const speed=s.speed||0;
-  const locomotion=s.grounded?(speed>.14?(speed>2.1?'run':'walk'):(s.idle>7?'sit':'wait')):(s.vy>0?'jump':'jump_down');
+  const locomotion=s.grounded?(speed>.14?(speed>2.1?'run':'walk'):((s.sitting||s.idle>=120)?'sit':'wait')):(s.vy>0?'jump':'jump_down');
   const name=this.oneShot||locomotion;this.play(name);
   const a=this.actions[name];
   if(name==='walk'||name==='run')a.timeScale=THREE.MathUtils.clamp(speed/CAT_CLIP_SPEED[name],.55,1.9);

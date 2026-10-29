@@ -21,7 +21,7 @@ export function dressXiaosi(actor){
  const panelP=[],panelI=[],panelJ=[],panelW=[],cols=24,rows=12;
  const boneIndex=name=>body.skeleton.bones.findIndex(b=>b.name===name);
  for(let j=0;j<=rows;j++)for(let i=0;i<=cols;i++){
-  const v=j/rows,y=.74+v*.35,t=Math.PI/2+i/cols*Math.PI;
+  const v=j/rows,y=.74+v*.35,t=i/cols*Math.PI*2;
   const width=.150*(1-.55*THREE.MathUtils.smoothstep(v,.70,1));
   panelP.push(Math.sin(t)*width,y,-.020+Math.cos(t)*(.096-.025*v));
   const chest=THREE.MathUtils.smoothstep(y,.85,1.02);
@@ -30,7 +30,7 @@ export function dressXiaosi(actor){
  }
  const panelGeo=new THREE.BufferGeometry();panelGeo.setAttribute('position',new THREE.Float32BufferAttribute(panelP,3));panelGeo.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(panelJ,4));panelGeo.setAttribute('skinWeight',new THREE.Float32BufferAttribute(panelW,4));panelGeo.setIndex(panelI);panelGeo.computeVertexNormals();
  const cloth=makeMat('#102653',0,.92);cloth.side=THREE.DoubleSide;
- const panel=new THREE.SkinnedMesh(panelGeo,cloth);panel.name='齐肩发下的完整衣背';panel.bind(body.skeleton,body.bindMatrix);panel.frustumCulled=false;panel.castShadow=true;body.parent.add(panel);
+ const panel=new THREE.SkinnedMesh(panelGeo,cloth);panel.name='连续闭合的海军蓝衣身衬层';panel.bind(body.skeleton,body.bindMatrix);panel.frustumCulled=false;panel.castShadow=true;body.parent.add(panel);
 
  const halfUp=group('小司 · 齐肩半扎丸子头');
  // The reference has a compact bun high at the back, not a hanging ponytail.

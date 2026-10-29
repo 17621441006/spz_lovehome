@@ -13,7 +13,7 @@ for(const mode of ['idle','walk','run','sit','dance']){
  if(mode==='dance')assert(actor.triggerAction('mesh_dance'));
  const speed=mode==='run'?4:mode==='walk'?CHARACTER_DEFS.xiaosi.walk:0;
  for(let i=0;i<240;i++){
-  actor.update(1/60,{speed,running:mode==='run',idle:mode==='sit'?10:0,grounded:true,actualVelocity:new THREE.Vector3(0,0,speed)});actor.root.updateMatrixWorld(true);
+  actor.update(1/60,{speed,running:mode==='run',idle:0,sitting:mode==='sit',grounded:true,actualVelocity:new THREE.Vector3(0,0,speed)});actor.root.updateMatrixWorld(true);
   const ringWorld=a.ring.getWorldPosition(new THREE.Vector3()),expected=new THREE.Vector3().setFromMatrixPosition(local).applyMatrix4(actor.bones.LeftHand.matrixWorld);
   assert(ringWorld.distanceTo(expected)<1e-8,mode+' ring detached');
   assert(ringWorld.distanceTo(actor.bones.LeftHand.getWorldPosition(new THREE.Vector3()))<.12,mode+' ring outside hand');

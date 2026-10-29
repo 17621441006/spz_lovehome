@@ -1,3 +1,4 @@
+import {setupDisplayControls} from './display-controls.js';
 import {IslandOcean} from './ocean.js';
 import {TreeOcclusion} from './tree-occlusion.js';
 import {addElderTree,updateElderGlade,inElderRiver,onElderBridge} from './elder-tree.js';
@@ -152,8 +153,8 @@ addEventListener('keydown', (e) => {
   if (k === 'r') toggleRain();
   if (k === 'v') toggleSnow();
   if (k === 'n') toggleNight();
-  if (k === 'c') { P.idle = 15; }
-  if (k === 'x') { P.idle = 9; }
+  if (k === 'c') toggleSit();
+  if (k === 'x') toggleSit();
   if (k === 'h') toggleUI();
 });
 addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; keys[e.code] = false; });
@@ -231,6 +232,10 @@ $('bSun').onclick=()=>chooseWeather('sun');$('bCloud').onclick=()=>chooseWeather
 addEventListener('keydown',e=>{if(e.key==='Escape'){closePopover('weather');closePopover('help');}});
 document.addEventListener('pointerdown',e=>{for(const n of ['weather','help']){const b=$(n==='weather'?'bWeather':'bHelp');if(!$(n+'Panel').contains(e.target)&&!b.contains(e.target))closePopover(n);}});
 function toggleUI() { document.body.classList.toggle('hidden-ui'); }
+setupDisplayControls({document,listen:addEventListener,clearMovement,toast});
+$('bActions').onclick=()=>{const open=$('actionMenu').hidden;$('actionMenu').hidden=!open;$('bActions').setAttribute('aria-expanded',String(open));if(open){document.exitPointerLock?.();clearMovement();}};
+$('bSit').onclick=()=>{toggleSit();$('actionMenu').hidden=true;};
+function toggleSit(){if(!started||characterMenuOpen||switching||equipment.open||catbus.riding||!P.grounded||cat.isPerforming)return;canopySeated=!canopySeated;P.idle=0;P.vel.set(0,0,0);}
 $('bMusic').onclick=()=>{if(document.pointerLockElement)document.exitPointerLock();$('musicPanel').hidden=!$('musicPanel').hidden;};
 $('musicClose').onclick=()=>{$('musicPanel').hidden=true;};
 $('musicVolume').oninput=e=>sound.setMusicVolume(Number(e.target.value)/100);
@@ -298,7 +303,7 @@ function nearCanopy(){if(!elderSanctuary||!P.grounded)return false;const s=elder
 function useCanopy(){if(!started||characterMenuOpen||equipment.open||busy()||portalTrip)return;const s=elderSanctuary;if(P.pos.y<s.canopy.minY){portalTrip={position:s.canopy.seat.clone(),upper:true,canopy:true,time:0,moved:false};P.vel.set(0,0,0);P.vy=0;portalFade.classList.add('active');}else{canopySeated=!canopySeated;P.idle=canopySeated?10:0;P.vel.set(0,0,0);toast(canopySeated?'坐在叶子上吹吹风 · 方向键即可起身':'起来走走吧');}}
 
 // ---------------- actions ----------------
-function performAction(index){if(catbus.riding)return;if(!started||characterMenuOpen||switching||equipment.open||!P.grounded)return;const action=CHARACTER_DEFS[characterId].actions[index][0];if(cat.triggerAction(action)){canopySeated=false;P.idle=0;P.vel.multiplyScalar(.08);}}
+function performAction(index){if(catbus.riding)return;if(!started||characterMenuOpen||switching||equipment.open||!P.grounded)return;const action=CHARACTER_DEFS[characterId].actions[index][0];if(cat.triggerAction(action)){$('actionMenu').hidden=true;canopySeated=false;P.idle=0;P.vel.multiplyScalar(.08);}}
 
 let roarGust = 0, pendingRoar = -1, pendingInvite = false, inviteT = -1;
 // 龙猫大人的小游戏：吼完一声后邀请玩家玩《咚！伞上的雨滴》
@@ -499,7 +504,7 @@ const fwd = new THREE.Vector3(), right = new THREE.Vector3(), dir = new THREE.Ve
 let splashCD = 0, lieSaid = false, zzzT = 0;
 const previousPosition=new THREE.Vector3(),actualVelocity=new THREE.Vector3();
 function updateCat(dt) {
-  if(catbus.riding){catbus.seat(P.pos);P.heading=catbus.yaw;P.vel.set(0,0,0);P.vy=0;P.grounded=false;cat.root.position.copy(P.pos);cat.root.rotation.y=P.heading;cat.update(dt,{speed:0,running:false,grounded:true,vy:0,idle:10,vel:P.vel});return;}
+  if(catbus.riding){catbus.seat(P.pos);P.heading=catbus.yaw;P.vel.set(0,0,0);P.vy=0;P.grounded=false;cat.root.position.copy(P.pos);cat.root.rotation.y=P.heading;cat.update(dt,{speed:0,running:false,grounded:true,vy:0,idle:0,sitting:true,vel:P.vel});return;}
   if(!document.getElementById('busDialog').hidden||busy()){P.vel.set(0,0,0);if(fishing.open)return;cat.update(dt,{speed:0,grounded:true,vy:0,idle:0});return;}
 
   if(equipment.open){cat.update(dt,{speed:0,running:false,grounded:true,vy:0,idle:0,vel:P.vel,actualVelocity:actualVelocity.set(0,0,0)});return;}
@@ -585,7 +590,7 @@ function updateCat(dt) {
   cat.root.position.copy(P.pos);
   cat.root.rotation.y = P.heading;
   actualVelocity.subVectors(P.pos,previousPosition).divideScalar(Math.max(dt,.001));actualVelocity.y=0;
-  cat.update(dt, { speed: Math.min(actualVelocity.length(),Math.hypot(P.vel.x,P.vel.z)), running:!!running, grounded: P.grounded, vy: P.vy, idle: P.idle, vel: P.vel, actualVelocity });
+  cat.update(dt, { speed: Math.min(actualVelocity.length(),Math.hypot(P.vel.x,P.vel.z)), running:!!running, grounded: P.grounded, vy: P.vy, idle: P.idle, sitting:canopySeated, vel: P.vel, actualVelocity });
 
   // sleepy talk
   if (cat.lieAmt > 0.6 && !lieSaid) { lieSaid = true; say('我先躺了…', catHead, 2.2, true); zzzT = 3; }
@@ -614,7 +619,7 @@ function updateCamera(dt) {
 const tmp2 = new THREE.Vector3();
 
 // ---------------- debug poses for screenshots ----------------
-if (params.get('pose') === 'sit') P.idle = 9;
+if (params.get('pose') === 'sit') canopySeated=true;
 if (params.get('pose') === 'lie') P.idle = 20;
 if (params.get('pos')) { const v = params.get('pos').split(',').map(Number); P.pos.set(v[0], heightAt(v[0], v[1]), v[1]); }
 if (params.get('heading')) P.heading = Number(params.get('heading'));
@@ -635,7 +640,7 @@ function frame() {
   updateEnv(dt);
   updateCrystals(elapsed,env.night);
   updateElderGlade(elapsed,env.night); fantasyEcology.update(dt,elapsed,P.pos,env,roarGust,say,sound);
-  if(started&&!characterMenuOpen&&!equipment.open)detailStream.update(dt,P.pos);
+  if(started&&!characterMenuOpen&&!equipment.open&&P.vel.lengthSq()<.02&&P.idle>1)detailStream.update(dt,P.pos);
   catbus.paused=!started||characterMenuOpen||equipment.open||!$('busDialog').hidden;
   catbus.update(dt,[...roster.cache.values()].filter(a=>!(catbus.riding&&a===cat)).map(a=>a.root.position).concat([chu.group.position,chibi.group.position]));
   $('busPrompt').hidden=!started||characterMenuOpen||equipment.open||(!catbus.riding&&P.pos.distanceTo(catbus.root.position)>6);

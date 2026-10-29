@@ -121,7 +121,7 @@ export const cloudMat = new THREE.MeshBasicMaterial({map:cloudAtlas,color:'#ffff
 function buildClouds(){
  const g=new THREE.Group();g.name='手绘晴空 · 积云与薄云';const R=rng(22109);
  const rects=[[72,124,565,610],[693,276,1226,567],[57,812,571,1133],[681,847,1206,1119]],kinds=['tower','bank','small','wisp'];
- for(let i=0;i<22;i++){const type=[0,2,1,3,2,1,3][i%7],rect=rects[type].map((v,k)=>v+(k<2?-6:6)),a=i/22*Math.PI*2+(R()-.5)*.18,dist=265+R()*65,w=(type===0?65:type===1?85:type===2?27:100)*(.8+R()*.4),h=w*(rect[3]-rect[1])/(rect[2]-rect[0]);
+ for(let i=0;i<22;i++){const type=i===0?0:[1,2,3,2,1,3][i%6],rect=rects[type].map((v,k)=>v+(k<2?-6:6)),a=i/22*Math.PI*2+(R()-.5)*.18,dist=265+R()*65,w=(type===0?65:type===1?85:type===2?27:100)*(.8+R()*.4),h=w*(rect[3]-rect[1])/(rect[2]-rect[0]);
   const geo=new THREE.PlaneGeometry(w,h),uv=geo.attributes.uv;for(let j=0;j<uv.count;j++)uv.setXY(j,THREE.MathUtils.lerp(rect[0]/1254,rect[2]/1254,uv.getX(j)),THREE.MathUtils.lerp(1-rect[3]/1254,1-rect[1]/1254,uv.getY(j)));
   const m=new THREE.Mesh(geo,cloudMat);m.name='手绘'+kinds[type];m.position.set(Math.cos(a)*dist,(type===3?23:type===2?45+R()*48:35)+h*.5,Math.sin(a)*dist);m.lookAt(0,m.position.y,0);m.renderOrder=-2;m.userData.cloudKind=kinds[type];g.add(m);
  }

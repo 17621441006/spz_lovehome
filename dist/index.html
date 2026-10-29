@@ -206,7 +206,9 @@ body:not(.is-loading) #title .card,.load-error #title .card{position:absolute;in
 .portal-fade{position:fixed;inset:0;z-index:9999;background:#eaf3dd;opacity:0;pointer-events:none;transition:opacity .27s ease}.portal-fade.active{opacity:1;pointer-events:auto}
 </style>
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }</script>
-</head>
+<style>
+#actions{display:block}#actionMenu{position:absolute;right:0;bottom:48px;width:172px;padding:9px;background:#f8f4e3f5;border:1px solid #cfcea8;border-radius:14px;box-shadow:0 8px 30px #193d3030}#actionMenu button{display:block;width:100%;margin:5px 0;text-align:left}#actionMenu[hidden]{display:none}#restoreUI{display:none;position:fixed;left:18px;bottom:18px;z-index:60;border:1px solid #d1d5b4;background:#f6f2e5ce;color:#52694e;border-radius:20px;padding:9px 15px;cursor:pointer}.hidden-ui #restoreUI{display:block}#settingsPanel p{font-size:12px;line-height:1.8}
+</style></head>
 <body class="is-loading">
   <div id="title">
     <video id="loadingWallpaper" autoplay muted loop playsinline preload="metadata" poster="assets/loading-poster.webp?v=20" aria-hidden="true"><source src="assets/loading-lite.mp4?v=22" type="video/mp4"></video><script>
@@ -267,7 +269,7 @@ body:not(.is-loading) #title .card,.load-error #title .card{position:absolute;in
     <button id="bWeather" aria-label="选择天气" aria-haspopup="dialog" aria-expanded="false" title="天气">☀ 天气</button>
     <button id="bHelp" aria-label="操作说明" aria-haspopup="dialog" aria-expanded="false" title="操作说明">ⓘ 操作说明</button>
     <button id="bMusic" aria-label="打开配乐设置">♫ 配乐</button><button id="bSound" class="on" aria-label="切换全部声音">🔊</button>
-    <button id="bHide" aria-label="隐藏界面，按 H 恢复">👁</button>
+    <button id="bSettings" aria-label="游戏设置">⚙ 设置</button><button id="bHide" aria-label="纯净视野，按 Esc 恢复">👁</button>
   </div>
 
   <div id="equipmentModal" hidden>
@@ -289,7 +291,9 @@ body:not(.is-loading) #title .card,.load-error #title .card{position:absolute;in
 
   <aside id="weatherPanel" class="forest-popover" hidden role="dialog" aria-labelledby="weatherTitle"><header><strong id="weatherTitle">森林的天气</strong><button id="weatherClose" aria-label="收起天气">×</button></header><div class="weather-grid"><button id="bSun" type="button">☀<span>林间晴光</span></button><button id="bCloud" type="button">☁<span>柔光白昼</span></button><button id="bRain" type="button">☂<span>轻柔细雨</span></button><button id="bSnow" type="button">❄<span>林间落雪</span></button><button id="bNight" type="button">☾<span>星月夜晚</span></button></div></aside>
   <aside id="helpPanel" class="forest-popover" hidden role="dialog" aria-labelledby="helpTitle"><header><strong id="helpTitle">操作说明</strong><button id="helpClose" aria-label="收起操作说明">×</button></header><div class="help-keys"><kbd>W A S D</kbd><span>移动 · Shift 跑步</span><kbd>空格</kbd><span>跳跃</span><kbd>E</kbd><span>打招呼 / 与猫车对话</span><kbd>J / K</kbd><span>角色动作</span><kbd>B / C</kbd><span>装备 / 坐下</span><kbd>鼠标</kbd><span>点击画面后转动视角，滚轮缩放；Esc 释放</span><kbd>R / V / N</kbd><span>细雨 / 下雪 / 夜晚</span></div><p id="hint"></p><p id="place"></p></aside>
-  <div id="actions"><button id="bKick1" title="J：踢腿"><kbd>J</kbd> 踢腿</button><button id="bKick2" title="K：花式踢腿"><kbd>K</kbd> 花式踢</button></div>
+  <div id="actions"><button id="bActions" aria-expanded="false">☷ 动作</button><div id="actionMenu" hidden><button id="bSit">坐下 / 起身</button><button id="bKick1" title="J：踢腿"><kbd>J</kbd> 踢腿</button><button id="bKick2" title="K：花式踢腿"><kbd>K</kbd> 花式踢</button></div></div>
+  <aside id="settingsPanel" class="forest-popover" hidden role="dialog" aria-label="游戏设置"><header><strong>游戏设置</strong><button id="settingsClose" aria-label="关闭游戏设置">×</button></header><button id="fullscreenToggle" class="file-button" aria-pressed="false">进入全屏</button><p>全屏使用整个屏幕。按 Esc 退出全屏，也可恢复隐藏的界面。</p></aside>
+  <button id="restoreUI" aria-label="退出纯净视野">退出纯净视野 · Esc</button>
   <div id="toast"></div>
   <div id="touch">
     <div id="stick"><div id="knob"></div></div>

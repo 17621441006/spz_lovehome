@@ -46,6 +46,11 @@ export function createElderSanctuary(scene,tree,colliders){
  for(let i=0;i<8;i++){const a=i/8*Math.PI*2;mesh(new THREE.SphereGeometry(.14,12,8),glow,[x+Math.cos(a)*(outer-.05),deckY+.16,z+Math.sin(a)*(outer-.05)],'观景台叶灯');}
  for(const a of [Math.PI*.55,Math.PI*1.1]){const p=[x+Math.cos(a)*5.3,deckY+.4,z+Math.sin(a)*5.3],seat=mesh(new THREE.BoxGeometry(1.8,.12,.48),wood,p,'看风景的长椅');seat.rotation.y=-a-Math.PI/2;for(const s of [-1,1])beam([p[0]+s*.55*Math.sin(a),deckY,p[2]-s*.55*Math.cos(a)],[p[0]+s*.55*Math.sin(a),deckY+.35,p[2]-s*.55*Math.cos(a)],.07,dark);}
  const canopy=createCanopySurface(tree,deckY+3);colliders.push(canopy);
+ // Cut a genuine level recess for the return pad, including narrow vertical
+ // twigs which a sampled leaf height field can miss between grid points.
+ const pad=canopy.returnPad,clearPad=[];for(let i=0;i<40;i++){const a=i/40*Math.PI*2,nx=Math.cos(a),nz=Math.sin(a);clearPad.push([nx,0,nz,-nx*pad.x-nz*pad.z-1.04]);}clearPad.push([0,-1,0,pad.y-.09],[0,1,0,-pad.y-8]);tree.traverse(m=>{if(m.isMesh)carveGeometry(m,[clearPad],m.matrixWorld);});
+ const leafSample=canopy.sample;canopy.sample=(px,pz)=>Math.hypot(px-pad.x,pz-pad.z)<.98?pad.y+.038:leafSample(px,pz);
+ colliders.push({type:'circle',x:pad.x,z:pad.z,r:.98,top:pad.y+.038,floorOnly:true,elderCrownPad:true});
  const pads=[],portals=[new THREE.Vector3(x,floorY,hallZ),new THREE.Vector3(x+4,deckY,z),canopy.returnPad.clone()];
  for(const [i,p]of portals.entries()){const circle=mesh(new THREE.CylinderGeometry(.92,.98,.045,64),dark,[p.x,p.y+.015,p.z],i===2?'回到圆台的传送阵':i?'回到树洞的传送阵':'通往云冠的传送阵');
   const mat=new THREE.MeshBasicMaterial({color:'#b4e6c7',transparent:true,opacity:.68,depthWrite:false,toneMapped:false});const r=mesh(new THREE.TorusGeometry(.76,.018,6,72),mat,[p.x,p.y+.045,p.z]);r.rotation.x=Math.PI/2;

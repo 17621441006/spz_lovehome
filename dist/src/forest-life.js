@@ -12,7 +12,7 @@ export class ForestLife{
  if(s.mode==='wander'){for(let n=0;n<30;n++){const t=this.random()*Math.PI*2,r=2+this.random()*6,x=p.x+Math.sin(t)*r,z=p.z+Math.cos(t)*r;if(this.safe(x,z)){s.target.set(x,heightAt(x,z),z);break;}}}
  if(s.mode==='gesture')a.triggerAction(CHARACTER_DEFS[id].actions[Math.floor(this.random()*2)][0]);}
  if(s.mode==='wander'&&!a.isPerforming){const d=s.target.clone().sub(p);d.y=0;if(d.length()<.3){s.timer=0;}else{d.normalize();const speed=CHARACTER_DEFS[id].walk*.65,n=p.clone().addScaledVector(d,speed*dt);const crowded=[...this.roster.cache.values()].some(b=>b!==a&&b.root.position.distanceTo(n)<1.1);if(this.safe(n.x,n.z)&&!crowded&&Math.abs(heightAt(n.x,n.z)-p.y)<.18){velocity.copy(d).multiplyScalar(speed);p.copy(n);p.y=heightAt(p.x,p.z);a.root.rotation.y=Math.atan2(d.x,d.z);}else s.timer=0;}}
- s.idle=s.mode==='sit'?10:0;a.update(dt,{speed:velocity.length(),running:false,grounded:true,vy:0,idle:s.idle,vel:velocity,actualVelocity:velocity});
+ s.idle=s.mode==='sit'?10:0;a.update(dt,{speed:velocity.length(),running:false,grounded:true,vy:0,idle:s.idle,sitting:s.mode==='sit',vel:velocity,actualVelocity:velocity});
  a.root.userData.activity=s.mode;
  }}
 }

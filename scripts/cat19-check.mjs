@@ -27,7 +27,7 @@ for(const [speed,clip] of [[1.35,'walk'],[3.2,'run']]){
  const ts=cat.actions[clip].timeScale;assert(ts>.55&&ts<1.9,`${clip} timeScale ${ts}`);
 }
 // Sitting: seat on the ground and nothing below it.
-settle({grounded:true,speed:0,idle:9,vy:0},300);assert.equal(cat.state,'sit');
+settle({grounded:true,speed:0,idle:0,sitting:true,vy:0},300);assert.equal(cat.state,'sit');
 const sit=lowest();assert(sit>-.04&&sit<.05,`seated lowest point ${sit}`);
 const hipsY=cat.bones.Hips.getWorldPosition(V).y;assert(hipsY<.30,`seated hips ${hipsY}`);
 // Fan pose: equipping raises the paw to the bind pose and opens the fan.
