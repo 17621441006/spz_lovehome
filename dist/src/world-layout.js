@@ -7,6 +7,7 @@ export const LAYOUT = {
  lake:{x:-4,z:-60,r:11.5,level:-.32},lakeLobe:21,lakeLobeWidth:.43,
  sprout:{x:-5,z:-20},playRadius:62,terrainRadius:67,treeLimit:60,
  elder:{x:-28,z:0,flat:10.5,blend:14},catbusRoute:{x:22,z:-23,rx:8,rz:11},
+ dewGlade:{x:16,z:-48,rx:4.1,rz:5.2,home:{x:16,z:-46},dew:[[16,-48],[18,-49],[18,-51],[15,-51],[14.5,-49]]},
  inari:{x:23,z:11,endZ:35.8},
  buildings:[
   {id:'shrine',name:'风起草甸 · 听风亭',x:-27,z:39,width:6*Math.SQRT2,flat:6.3,rotation:Math.PI},
@@ -28,16 +29,20 @@ export const WALK_PATHS=[
  {id:'town',name:'樱影町屋',points:[[-16.8,0],[-18,8],[-25,13],[-35,16],[-37.5,20]],width:1.2},
  {id:'west',name:'风起草甸',points:[[-37.5,20],[-36,29],[-27,32.7]],width:.9},
  {id:'pagoda',name:'东岬五重塔',points:[[22,-12],[32,-12],[35,-22],[37.3,-30]],width:1.15},
+ {id:'dew',name:'露灯小径',points:[[8,-40],[11.5,-43.3],[14,-44],[16,-46]],width:.72},
+ {id:'dew-loop',name:'晨露草隙',points:[[16,-46],[16,-48],[18,-49],[18,-51],[15,-51],[14.5,-49],[16,-46]],width:.45},
 ];
 
 export function centralMeadow(x,z,pad=0){const c=LAYOUT.meadow;return ((x-c.x)/(c.rx+pad))**2+((z-c.z)/(c.rz+pad))**2<1;}
 export function focalClearing(x,z,pad=0){
  if(centralMeadow(x,z,pad))return true;
+ const d=LAYOUT.dewGlade;if(((x-d.x)/(d.rx+pad))**2+((z-d.z)/(d.rz+pad))**2<1)return true;
  if(Math.hypot(x-LAYOUT.house.x,z-LAYOUT.house.z)<9+pad)return true;
  if(Math.hypot(x-LAYOUT.totoro.x,z-LAYOUT.totoro.z)<6+pad)return true;
  return LAYOUT.buildings.some(b=>Math.hypot(x-b.x,z-b.z)<b.flat+3+pad);
 }
 export function regionDescription(x,z){
+ if(Math.hypot(x-LAYOUT.dewGlade.x,z-LAYOUT.dewGlade.z)<8)return '露灯小径 · 跟着暖光，帮灯尾茸寻找晨露';
  if(Math.hypot(x-LAYOUT.lake.x,z-LAYOUT.lake.z)<26)return '星湖 · 芦苇、木栈桥与阿渔伯的钓场';
  if(Math.hypot(x-LAYOUT.elder.x,z-LAYOUT.elder.z)<13)return '云冠古树 · 过溪入树洞，沿光环去树顶';
  if(Math.hypot(x-26,z+18)<10)return '龙猫车站 · 古木睡窝，等一班森林的车';

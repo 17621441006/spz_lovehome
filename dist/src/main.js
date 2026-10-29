@@ -7,6 +7,8 @@ import {IslandOcean} from './ocean.js';
 import {TreeOcclusion} from './tree-occlusion.js';
 import {BuildingOcclusion} from './building-occlusion.js';
 import {regionDescription} from './world-layout.js';
+import {loadDengweirong} from './dengweirong.js';
+import {DewLanternGame} from './minigames/dew-lantern.js';
 import {addElderTree,updateElderGlade,inElderRiver,onElderBridge} from './elder-tree.js';
 import {moveWithCollisions} from './collision.js';
 import {planStartup,finishStartup,detailStream} from './asset-stream.js';
@@ -145,6 +147,7 @@ if (params.get('cam')) {
 
 // ---------------- input ----------------
 const keys = {};const sprint=new SprintControl();
+let dewNpc=null,dewGame=null,dewLoading=null,dewRetryAt=0,worldInputFocused=true;
 let started = false;
 addEventListener('keydown', (e) => {
   if (!started || busy() || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
@@ -153,10 +156,11 @@ addEventListener('keydown', (e) => {
   if(catbus.riding&&k!=='e'&&k!=='escape')return;
   if(k==='b'&&!e.repeat){e.preventDefault();if(!characterMenuOpen&&!switching&&P.grounded)equipment.setOpen(!equipment.open);return;}
   if(equipment.open){if(k==='escape')equipment.setOpen(false);return;}
+  if(k==='escape'&&dewPlayEnabled()&&$('actionMenu').hidden&&dewGame?.handleEscape()){e.preventDefault();return;}
   if(e.repeat && [' ','e','j','k','c','x'].includes(k))return;
   sprint.down(k,performance.now()/1000,e.repeat);keys[k] = true; keys[e.code] = true;
   if (k === ' ') { P.jumpBuf = 0.15; e.preventDefault(); }
-  if (k === 'e') {if(totoro.occupied||nearTotoro()&&totoro.sleep>.85)useTotoroBed();else if(nearCanopy())useCanopy();else if(!catbus.riding&&nearKeeper())talkToKeeper();else if(catbus.riding||P.pos.distanceTo(catbus.root.position)<6&&!nearTotoro())openBusDialog();else meow();}
+  if (k === 'e') {if(totoro.occupied||nearTotoro()&&totoro.sleep>.85)useTotoroBed();else if(nearCanopy())useCanopy();else if(nearDewFriend())talkToDewFriend();else if(!catbus.riding&&nearKeeper())talkToKeeper();else if(catbus.riding||P.pos.distanceTo(catbus.root.position)<6&&!nearTotoro())openBusDialog();else meow();}
   if(k==='j')performAction(0);
   if(k==='k')performAction(1);
   if (k === 'r') toggleRain();
@@ -168,7 +172,8 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => { keys[movementKey(e)] = false; keys[e.code] = false; });
 function clearMovement(){sprint.reset();for(const k in keys)keys[k]=false;touch.x=touch.y=0;P.vel.set(0,0,0);P.jumpBuf=0;dragId=null;}
-addEventListener('blur',clearMovement);
+addEventListener('blur',()=>{worldInputFocused=false;clearMovement();});
+addEventListener('focus',()=>{worldInputFocused=true;});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)clearMovement();});
 
 const canvas = renderer.domElement;
@@ -220,7 +225,7 @@ const $ = (id) => document.getElementById(id);
 $('acornTotal').textContent = acorns.total;
 function openBusDialog(){if(!started||characterMenuOpen||equipment.open)return;if(document.pointerLockElement)document.exitPointerLock();clearMovement();$('busDialog').hidden=false;$('busMessage').textContent=catbus.riding?'想在这里歇一歇吗？我会慢慢停稳，再让你下车。':'喵～坐稳啦，要一起兜风吗？我会沿村庄和星湖巡游，到站停一停。';$('busClose').focus();$('busBoard').hidden=catbus.riding;$('busExit').hidden=!catbus.riding;}
 $('busPrompt').onclick=openBusDialog;
-$('actPrompt').onclick=()=>{if($('actPrompt').dataset.target==='canopy')useCanopy();else if($('actPrompt').dataset.target==='keeper')talkToKeeper();else if(totoro.occupied||totoro.sleep>.85)useTotoroBed();else meow();};
+$('actPrompt').onclick=()=>{if($('actPrompt').dataset.target==='canopy')useCanopy();else if($('actPrompt').dataset.target==='dew')talkToDewFriend();else if($('actPrompt').dataset.target==='keeper')talkToKeeper();else if(totoro.occupied||totoro.sleep>.85)useTotoroBed();else meow();};
 $('busClose').onclick=()=>{$('busDialog').hidden=true;};
 $('busBoard').onclick=()=>{if(catbus.speed>.05){$('busMessage').textContent='等我停稳一下，再点「上车兜风」就好。';return;}catbus.riding=true;catbus.stopping=false;catbus.wait=1;cat.model.rotation.y=0;cat.oneShot=null;P.jumpBuf=0;clearMovement();$('busDialog').hidden=true;};
 $('busExit').onclick=()=>{catbus.stopping=true;$('busDialog').hidden=true;toast('猫车正在缓缓停车…');};
@@ -337,7 +342,17 @@ const TOTORO_TALK = 5.2, KEEPER_TALK = 3.2;
 let totoroCD = 0, keeperTalking = false;
 const nearTotoro = () => totoro.occupied || Math.hypot(P.pos.x - totoro.group.position.x, P.pos.z - totoro.group.position.z) < TOTORO_TALK;
 const nearKeeper = () => Math.hypot(P.pos.x - KEEPER_POS.x, P.pos.z - KEEPER_POS.z) < KEEPER_TALK;
-function busy() { return totoroGame.open || roarContest.open || fishing.open || keeperTalking || isDialogOpen(); }
+function busy() { return totoroGame.open || roarContest.open || fishing.open || keeperTalking || !!dewGame?.modal || isDialogOpen(); }
+function dewPlayEnabled(){return started&&worldInputFocused&&!characterMenuOpen&&!switching&&!equipment.open&&!catbus.riding&&!totoro.occupied&&!canopySeated&&!portalTrip&&!busy()&&P.grounded&&!cat.isPerforming&&!document.hidden&&$('busDialog').hidden&&$('weatherPanel').hidden&&$('helpPanel').hidden&&$('settingsPanel').hidden;}
+function nearDewFriend(){return !!dewGame&&dewPlayEnabled()&&dewGame.canInteract(P.pos);}
+function talkToDewFriend(){if(!nearDewFriend())return;dewGame.interact();}
+function loadDewFriend(){
+ if(dewNpc||dewLoading||performance.now()<dewRetryAt)return;
+ const glade=LAYOUT.dewGlade,home={...glade.home};
+ dewLoading=loadDengweirong(scene,{home,roamCenter:{x:glade.x,z:glade.z},roamRadius:3,waypoints:glade.dew.map(([x,z])=>({x,z}))}).then(npc=>{
+  try{dewGame=new DewLanternGame({scene,npc,home:new THREE.Vector3(home.x,heightAt(home.x,home.z),home.z),nodes:glade.dew.map(([x,z])=>new THREE.Vector3(x,groundAt(x,z,heightAt(x,z)+.3,.42),z)),getPlayerPosition:()=>P.pos,sound,onToast:toast,canPlay:dewPlayEnabled,onBusyChange(){if(document.pointerLockElement)document.exitPointerLock();clearMovement();P.idle=0;}});dewNpc=npc;}catch(error){npc.dispose();throw error;}
+ }).catch(error=>{dewRetryAt=performance.now()+30000;console.warn('灯尾茸暂未载入，稍后重试',error);}).finally(()=>{dewLoading=null;});
+}
 function enterMinigame() { if (document.pointerLockElement) document.exitPointerLock(); clearMovement(); document.body.classList.add('minigame'); }
 function leaveMinigame() { clearMovement(); document.body.classList.remove('minigame'); }
 const roarContest = new RoarContest({
@@ -399,6 +414,7 @@ async function talkToKeeper() {
 }
 function meow() {
   if(equipment.open||characterMenuOpen||catbus.riding)return;
+  if(nearDewFriend()){talkToDewFriend();return;}
   P.idle = 0;
   cat.doMeow();
   if(characterId==='zangzangbao')sound.meow();
@@ -665,7 +681,7 @@ function frame() {
   catbus.paused=!started||characterMenuOpen||equipment.open||!$('busDialog').hidden;
   catbus.update(dt,[...roster.cache.values()].filter(a=>!(catbus.riding&&a===cat)).map(a=>a.root.position).concat([chu.group.position,chibi.group.position]));
   $('busPrompt').hidden=!started||characterMenuOpen||equipment.open||(!catbus.riding&&P.pos.distanceTo(catbus.root.position)>6);
-  {const near=!started||characterMenuOpen||equipment.open||catbus.riding||busy()?null:nearCanopy()?'canopy':nearKeeper()?'keeper':nearTotoro()?'totoro':null,ap=$('actPrompt');ap.hidden=!near;if(near){$('busPrompt').hidden=true;const label=near==='canopy'?(P.pos.y<elderSanctuary.canopy.minY?'E / 点击 · 去树冠观景':canopySeated?'E / 点击 · 起身':'E / 点击 · 坐在树叶上观景'):near==='keeper'?'E / 点击 · 和阿渔伯说话（钓鱼）':totoro.occupied?'E / 点击 · 离开龙猫的肚子':totoro.sleep>.85?'E / 点击 · 坐在龙猫肚子上':'E / 点击 · 和龙猫大人打招呼';if(ap.textContent!==label)ap.textContent=label;ap.dataset.target=near;}}
+  {const near=!started||characterMenuOpen||equipment.open||catbus.riding||busy()?null:nearCanopy()?'canopy':nearDewFriend()?'dew':nearKeeper()?'keeper':nearTotoro()?'totoro':null,ap=$('actPrompt');ap.hidden=!near;if(near){$('busPrompt').hidden=true;const label=near==='canopy'?(P.pos.y<elderSanctuary.canopy.minY?'E / 点击 · 去树冠观景':canopySeated?'E / 点击 · 起身':'E / 点击 · 坐在树叶上观景'):near==='dew'?'E / 点击 · '+(dewGame.hint||'和灯尾茸说话'):near==='keeper'?'E / 点击 · 和阿渔伯说话（钓鱼）':totoro.occupied?'E / 点击 · 离开龙猫的肚子':totoro.sleep>.85?'E / 点击 · 坐在龙猫肚子上':'E / 点击 · 和龙猫大人打招呼';if(ap.textContent!==label)ap.textContent=label;ap.dataset.target=near;}}
   $('busPrompt').textContent=catbus.riding?((catbus.wait>0?'停靠 · '+catbus.stationName:catbus.blocked?'正在礼让行人':catbus.currentRoute?.name||'村庄漫游')+' · E / 点击 下车'):'E / 点击 与猫车对话';
   if(catbus.stopping&&catbus.speed<.025&&catbus.riding){const exit=catbus.exitPoint();if(exit){catbus.riding=false;catbus.stopping=false;catbus.wait=8;P.pos.copy(exit);cat.root.position.copy(exit);P.grounded=true;P.idle=0;P.vel.set(0,0,0);toast('到啦，慢慢下车。');}}
 
@@ -675,6 +691,8 @@ function frame() {
   const destination=elderSanctuary?.update(dt,P.pos,started&&!characterMenuOpen&&!equipment.open&&!catbus.riding&&!portalTrip&&!busy()&&P.grounded);
   if(destination){portalTrip={...destination,time:0,moved:false};P.vel.set(0,0,0);P.vy=0;portalFade.classList.add('active');}
   if(portalTrip){portalTrip.time+=dt;if(portalTrip.time>=.28&&!portalTrip.moved){P.pos.copy(portalTrip.position);P.vel.set(0,0,0);P.vy=0;P.grounded=true;P.idle=portalTrip.canopy?10:0;canopySeated=!!portalTrip.canopy;cat.root.position.copy(P.pos);cam.target.copy(P.pos).y+=CHARACTER_DEFS[characterId].cameraHeight;portalTrip.moved=true;toast(portalTrip.canopy?'树叶软软的 · 光环可以回到圆台':portalTrip.upper?'云冠观景台 · 按 E 去树冠坐坐':'回到古树的怀抱',3);}if(portalTrip.time>=.42)portalFade.classList.remove('active');if(portalTrip.time>=.85)portalTrip=null;}
+  if(started&&detailStream.enabled&&!characterMenuOpen&&Math.hypot(P.pos.x-LAYOUT.dewGlade.home.x,P.pos.z-LAYOUT.dewGlade.home.z)<38)loadDewFriend();
+  if(dewNpc){dewNpc.update(dt,elapsed,P.pos,{weather:env,busy:!dewPlayEnabled(),paused:!started||!worldInputFocused||document.hidden||characterMenuOpen,playerRadius:CAT_R});dewGame?.update(dt,P.pos,{enabled:dewPlayEnabled(),visible:started&&!characterMenuOpen&&!equipment.open});}
 
   if(started&&!characterMenuOpen&&!equipment.open)life.update(dt,P.pos);
   snowTracks.update(dt,env.snow);
@@ -775,5 +793,5 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   snow.setPixelRatio?.(renderer.getPixelRatio());
 });
-window.__game = { fishing, roarContest, lake, talkToKeeper, P, cam, get catbus(){return catbus;},get elderSanctuary(){return elderSanctuary;}, sunShafts,ocean,detailStream,weatherCycle,sprint,waterRecovery,useTotoroBed, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment, fantasyEcology };
+window.__game = { fishing, roarContest, lake, talkToKeeper, P, cam, get dewNpc(){return dewNpc;},get dewGame(){return dewGame;},get dewLoading(){return dewLoading;},talkToDewFriend,get catbus(){return catbus;},get elderSanctuary(){return elderSanctuary;}, sunShafts,ocean,detailStream,weatherCycle,sprint,waterRecovery,useTotoroBed, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment, fantasyEcology };
 $('startBtn').disabled=false; $('startBtn').textContent='走进森林 →'; $('loadStatus').textContent='';finishStartup();document.body.classList.remove('is-loading');

@@ -13,6 +13,7 @@ export const lilyPads = [];
 export function groundAt(x, z, y = Infinity, catR = 0) {
   let g = heightAt(x, z);
   for (const c of colliders) {
+    if(c.noFloor)continue; // Small moving companions are not landing platforms.
     if(c.type==='heightfield'){const top=c.sample(x,z);if(top<=y+.35&&top>g)g=top;continue;}
     if (c.top > y + 0.35) continue;
     if (c.top <= g) continue;
