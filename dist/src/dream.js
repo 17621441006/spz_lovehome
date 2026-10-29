@@ -1,3 +1,4 @@
+import {furnishTemple} from './temple-interior.js';
 import {loadGLB,detailStream,replaceDetail} from './asset-stream.js';
 import {ASSET_BOUNDS} from './asset-bounds.js';
 import {coatTree} from './forest-weather.js';
@@ -17,10 +18,10 @@ const stone=new THREE.MeshStandardMaterial({color:'#c5c7a4',map:moss,roughness:1
 function normalizeModel(root,width,reference=null){root.updateMatrixWorld(true);const box=reference||new THREE.Box3().setFromObject(root),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());const s=width/size.x;const group=new THREE.Group();root.position.sub(new THREE.Vector3(center.x,box.min.y,center.z));group.add(root);group.scale.setScalar(s);root.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;o.receiveShadow=true;for(const m of Array.isArray(o.material)?o.material:[o.material]){m.metalness=0;m.roughness=.92;m.metalnessMap=null;m.roughnessMap=null;m.emissive=new THREE.Color('#d6e7a9');m.emissiveMap=m.map;m.emissiveIntensity=.10;if(m.map)m.map.anisotropy=8;if(m.normalScale)m.normalScale.set(.45,.45);}});return group;}
 function lantern(scene,x,z){const g=new THREE.Group();g.position.set(x,heightAt(x,z),z);const base=new THREE.Mesh(new THREE.CylinderGeometry(.32,.44,.22,8),stone);base.position.y=.11;const stem=new THREE.Mesh(new THREE.CylinderGeometry(.10,.15,.72,8),stone);stem.position.y=.55;const glow=new THREE.Mesh(new THREE.BoxGeometry(.38,.40,.38),new THREE.MeshStandardMaterial({color:'#ffdda0',emissive:'#ffb34e',emissiveIntensity:.8}));glow.position.y=1.06;const roof=new THREE.Mesh(new THREE.ConeGeometry(.48,.27,4),stone);roof.rotation.y=Math.PI/4;roof.position.y=1.4;g.add(base,stem,glow,roof);scene.add(g);colliders.push({type:'circle',x,z,r:.28,top:heightAt(x,z)+1.4});lanterns.push(glow.material);}
 function stairs(scene){
- const group=new THREE.Group();group.name='稻荷山道 · 32级石阶';const x=LAYOUT.inari.x;
- for(let i=0;i<32;i++){const z=LAYOUT.inari.z+i*.8,top=heightAt(x,z)+.17;const st=new THREE.Mesh(new THREE.BoxGeometry(3.3,.46,.86),stone);st.position.set(x,top-.23,z);st.receiveShadow=true;st.castShadow=true;group.add(st);colliders.push({type:'box',minX:x-1.65,maxX:x+1.65,minZ:z-.43,maxZ:z+.43,top});
-  if(i%3===0)group.add(createTorii(x,z,0,top,1.02));
-  if(i%8===0){lantern(scene,x-2.25,z);lantern(scene,x+2.25,z);}
+ const group=new THREE.Group();group.name='稻荷山道 · 48级石阶';const x=LAYOUT.inari.x;
+ for(let i=0;i<48;i++){const z=LAYOUT.inari.z+i*.53,top=heightAt(x,z)+.17;const st=new THREE.Mesh(new THREE.BoxGeometry(3.3,.46,.59),stone);st.position.set(x,top-.23,z);st.receiveShadow=true;st.castShadow=true;group.add(st);colliders.push({type:'box',minX:x-1.65,maxX:x+1.65,minZ:z-.295,maxZ:z+.295,top});
+  if(i%5===0)group.add(createTorii(x,z,0,top,1.02));
+  if(i%12===0){lantern(scene,x-2.25,z);lantern(scene,x+2.25,z);}
  }
  scene.add(group);
 }
@@ -78,6 +79,7 @@ export async function loadDreamWorld(scene,low,{progressive=false}={}){
   foundation(scene,b.x,b.z,size.x,size.z,ground);
   colliders.push(...BUILDING_COLLISIONS[b.id].colliders.map(c=>({...c})));
   if(b.id==='shrine')openPavilion(root,b,scene,colliders);
+  if(b.id==='temple')furnishTemple(root,b,scene,colliders);
  }
  stairs(scene);atmosphere(scene);boundaryMist(scene);
 

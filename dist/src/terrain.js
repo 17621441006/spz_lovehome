@@ -22,9 +22,9 @@ export const LAYOUT = {
   catbusRoute: {x:22,z:-23,rx:8,rz:11},
   inari: {x:23, z:11, endZ:35.8},
   buildings: [
-    {id:'shrine',name:'稻荷山顶神社',x:23,z:40,width:6*Math.SQRT2,flat:5.65,rotation:Math.PI},
+    {id:'shrine',name:'山下听风亭',x:9,z:35,width:6*Math.SQRT2,flat:5.65,rotation:Math.PI},
     {id:'pagoda',name:'五重塔',x:35,z:25,width:5.7,flat:4.2,rotation:-Math.PI/2},
-    {id:'temple',name:'朱红寺院',x:9,z:35,width:8.8,flat:5.8,rotation:Math.PI},
+    {id:'temple',name:'山顶朱红寺院',x:23,z:40,width:11.6,flat:7.1,rotation:Math.PI},
     {id:'japanese-house',name:'林间町屋',x:-25,z:20,width:6,flat:6.4,rotation:Math.PI/2},
   ],
 };
@@ -49,7 +49,7 @@ const lakePath = [[-8, -10], [-6, -22], [-4.5, -34], [-3.2, -46]];
 export function trailDist(x, z) { return Math.min(polyDist(x, z, shrinePath),polyDist(x,z,[[18,14],[23,11],[23,40]]),polyDist(x,z,lakePath)); }
 // The island edge bulges north to make room for the lake (radius varies with direction only).
 const LAKE_DIR = Math.atan2(LAYOUT.lake.z, LAYOUT.lake.x);
-export function edgeRadius(x, z) { let d = Math.atan2(z, x) - LAKE_DIR; d = Math.atan2(Math.sin(d), Math.cos(d)); return LAYOUT.playRadius + LAYOUT.lakeLobe * Math.exp(-((d / LAYOUT.lakeLobeWidth) ** 2)); }
+export function edgeRadius(x, z) { let d = Math.atan2(z, x) - LAKE_DIR; d = Math.atan2(Math.sin(d), Math.cos(d)); let summit=Math.atan2(z,x)-Math.atan2(40,23);summit=Math.atan2(Math.sin(summit),Math.cos(summit));return LAYOUT.playRadius+6*Math.exp(-((summit/.23)**2))+LAYOUT.lakeLobe*Math.exp(-((d/LAYOUT.lakeLobeWidth)**2)); }
 // Organic shoreline radius of the lake for a given direction from its centre.
 export function lakeShore(x, z) { const L = LAYOUT.lake, a = Math.atan2(z - L.z, x - L.x); return L.r * (1 + 0.07 * Math.sin(3 * a + 0.6) + 0.045 * Math.sin(5 * a + 2.1)); }
 export function lakeDist(x, z) { return Math.hypot(x - LAYOUT.lake.x, z - LAYOUT.lake.z); }

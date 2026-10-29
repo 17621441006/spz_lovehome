@@ -9,7 +9,7 @@ const {loadDreamWorld}=await import('../dist/src/dream.js');
 const {SmallTotoro}=await import('../dist/src/totoro.js');
 const {heightAt,buildTerrain,LAYOUT}=await import('../dist/src/terrain.js');
 const scene=new THREE.Scene();scene.add(buildTerrain());buildWorld(scene);await loadDreamWorld(scene,false);
-assert(scene.getObjectByName('脏脏包的森林树屋'));assert(scene.getObjectByName('稻荷山道 · 32级石阶'));
+assert(scene.getObjectByName('脏脏包的森林树屋'));assert(scene.getObjectByName('稻荷山道 · 48级石阶'));
 const cat=await loadModelCat('assets/cat-rig.glb',1.25);scene.add(cat.root);assert.equal(Object.keys(cat.actions).length,8);
 let skinned=0;cat.root.traverse(o=>{if(o.isSkinnedMesh)skinned++});assert(skinned>0);
 const hips=cat.model.getObjectByName('mixamorigHips'),leg=cat.model.getObjectByName('mixamorigLeftLeg');let maxDrift=0,minRot=Infinity,maxRot=-Infinity;
@@ -24,7 +24,7 @@ for(let i=0;i<10800;i++){const player=new THREE.Vector3(Math.sin(i/700)*9,0,Math
 assert(minDistance>=chu.radius+chibi.radius+.19,`NPC overlap ${minDistance}`);assert(movedA>20&&movedB>20,'Both companions must move independently');
 // Walk the new mountain approach and stairs in both directions with player clearance.
 let maxStep=0;
-for(const direction of [1,-1]){let prev=groundAt(23,direction>0?10:36,heightAt(23,direction>0?10:36)+.3,.42);for(let n=1;n<=520;n++){const z=direction>0?10+n*.05:36-n*.05;const g=groundAt(23,z,prev,.42);maxStep=Math.max(maxStep,g-prev);assert(g-prev<.301,`unwalkable riser at ${z}: ${g-prev}`);for(const c of colliders){if(c.top<900)continue;const d=c.type==='circle'?Math.hypot(23-c.x,z-c.z)-c.r:Math.hypot(Math.max(c.minX-23,0,23-c.maxX),Math.max(c.minZ-z,0,z-c.maxZ));assert(d>.42,`blocked mountain route ${z}`);}prev=g;}}
+for(const direction of [1,-1]){let prev=groundAt(23,direction>0?10:36,Infinity,.42);for(let n=1;n<=520;n++){const z=direction>0?10+n*.05:36-n*.05;const g=groundAt(23,z,prev,.42);maxStep=Math.max(maxStep,g-prev);assert(g-prev<.301,`unwalkable riser at ${z}: ${g-prev}`);for(const c of colliders){if(c.top<900)continue;const d=c.type==='circle'?Math.hypot(23-c.x,z-c.z)-c.r:Math.hypot(Math.max(c.minX-23,0,23-c.maxX),Math.max(c.minZ-z,0,z-c.maxZ));assert(d>.42,`blocked mountain route ${z}`);}prev=g;}}
 for(const b of LAYOUT.buildings){const mesh=scene.getObjectByName(b.name);assert(mesh,b.name);const box=new THREE.Box3().setFromObject(mesh);assert(Math.abs(box.min.y-heightAt(b.x,b.z))<.05,`${b.name} floating`);}
 const far=scene.children.filter(o=>o.name==='远景模型树');assert(far.length>=12&&far.length<=52);assert(far.every(o=>o.userData.treeAsset));
 const acorns=new Acorns(scene);assert.equal(acorns.total,14);for(const a of acorns.list){for(const c of colliders){if(c.top<900)continue;const x=a.position.x,z=a.position.z;if(c.type==='circle')assert(Math.hypot(x-c.x,z-c.z)>c.r+.42-.75,`acorn inside solid at ${x},${z}`);else assert(x<c.minX-.1||x>c.maxX+.1||z<c.minZ-.1||z>c.maxZ+.1,'acorn inside building');}}

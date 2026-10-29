@@ -214,11 +214,11 @@ if (matchMedia('(pointer: coarse)').matches || params.has('touch')) {
 // ---------------- UI ----------------
 const $ = (id) => document.getElementById(id);
 $('acornTotal').textContent = acorns.total;
-function openBusDialog(){if(!started||characterMenuOpen||equipment.open)return;if(document.pointerLockElement)document.exitPointerLock();clearMovement();$('busDialog').hidden=false;$('busMessage').textContent=catbus.riding?'想在这里歇一歇吗？我会慢慢停稳，再让你下车。':'喵～要搭一程吗？我们慢慢逛森林，不赶时间。';$('busClose').focus();$('busBoard').hidden=catbus.riding;$('busExit').hidden=!catbus.riding;}
+function openBusDialog(){if(!started||characterMenuOpen||equipment.open)return;if(document.pointerLockElement)document.exitPointerLock();clearMovement();$('busDialog').hidden=false;$('busMessage').textContent=catbus.riding?'想在这里歇一歇吗？我会慢慢停稳，再让你下车。':'喵～坐稳啦，要一起兜风吗？我会沿村庄和星湖巡游，到站停一停。';$('busClose').focus();$('busBoard').hidden=catbus.riding;$('busExit').hidden=!catbus.riding;}
 $('busPrompt').onclick=openBusDialog;
 $('actPrompt').onclick=()=>{if($('actPrompt').dataset.target==='canopy')useCanopy();else if($('actPrompt').dataset.target==='keeper')talkToKeeper();else if(totoro.occupied||totoro.sleep>.85)useTotoroBed();else meow();};
 $('busClose').onclick=()=>{$('busDialog').hidden=true;};
-$('busBoard').onclick=()=>{if(catbus.speed>.05){$('busMessage').textContent='等我停稳一下，再点「上车慢游」就好。';return;}catbus.riding=true;catbus.stopping=false;catbus.wait=1;cat.model.rotation.y=0;cat.oneShot=null;P.jumpBuf=0;clearMovement();$('busDialog').hidden=true;};
+$('busBoard').onclick=()=>{if(catbus.speed>.05){$('busMessage').textContent='等我停稳一下，再点「上车兜风」就好。';return;}catbus.riding=true;catbus.stopping=false;catbus.wait=1;cat.model.rotation.y=0;cat.oneShot=null;P.jumpBuf=0;clearMovement();$('busDialog').hidden=true;};
 $('busExit').onclick=()=>{catbus.stopping=true;$('busDialog').hidden=true;toast('猫车正在缓缓停车…');};
 
 const weatherCycle=new WeatherCycle();
@@ -243,7 +243,7 @@ function toggleUI() { document.body.classList.toggle('hidden-ui'); }
 setupDisplayControls({document,listen:addEventListener,clearMovement,toast});
 $('bActions').onclick=()=>{const open=$('actionMenu').hidden;$('actionMenu').hidden=!open;$('bActions').setAttribute('aria-expanded',String(open));if(open){document.exitPointerLock?.();clearMovement();}};
 $('bSit').onclick=()=>{toggleSit();$('actionMenu').hidden=true;};
-function toggleSit(){if(totoro.occupied){useTotoroBed();return;}if(!started||characterMenuOpen||switching||equipment.open||catbus.riding||!P.grounded||cat.isPerforming)return;canopySeated=!canopySeated;P.idle=0;P.vel.set(0,0,0);}
+function toggleSit(){if(totoro.occupied){useTotoroBed();return;}if(!started||characterMenuOpen||switching||equipment.open||catbus.riding||!P.grounded||cat.isPerforming)return;clearMovement();canopySeated=!canopySeated;P.idle=0;P.vel.set(0,0,0);}
 $('musicVolume').oninput=e=>sound.setMusicVolume(Number(e.target.value)/100);
 $('musicFile').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{await sound.loadMusic(file);$('musicName').textContent='当前：'+file.name;}catch{$('musicName').textContent='无法播放这个格式，请选择 MP3、WAV 或 OGG。';}};
 $('nextMusic').onclick=()=>{sound.init();sound.nextTrack();$('musicName').textContent='当前：原创 · '+sound.currentTrack;};
@@ -253,7 +253,7 @@ $('bKick2').onclick=()=>performAction(1);
 $('bSnow').onclick=toggleSnow;syncWeatherUI();
 $('bRain').onclick = toggleRain; $('bNight').onclick = toggleNight; $('bHide').onclick = toggleUI;
 $('bSound').onclick = () => { sound.setEnabled(!sound.enabled); $('bSound').classList.toggle('on', sound.enabled); $('bSound').textContent = sound.enabled ? '🔊 全部声音已开启' : '🔇 全部声音已关闭'; };
-const equipment=new EquipmentPanel({renderer,getActor:()=>cat,getCharacter:()=>({id:characterId,name:CHARACTER_DEFS[characterId].name}),getAcorns:()=>({count:Number($('acornCount').textContent),total:acorns.total}),onToggle:()=>{P.vel.set(0,0,0);P.jumpBuf=0;P.idle=0;touch.x=touch.y=0;for(const k in keys)keys[k]=false;$('settingsPanel').hidden=true;}});
+const equipment=new EquipmentPanel({renderer,getActor:()=>cat,getCharacter:()=>({id:characterId,name:CHARACTER_DEFS[characterId].name}),getAcorns:()=>({count:Number($('acornCount').textContent),total:acorns.total}),onToggle:()=>{sprint.reset();P.vel.set(0,0,0);P.jumpBuf=0;P.idle=0;touch.x=touch.y=0;for(const k in keys)keys[k]=false;$('settingsPanel').hidden=true;}});
 $('bEquipment').onclick=()=>{if(totoro.occupied)useTotoroBed();if(catbus.riding){toast('先让猫车停稳下车，再打开行囊吧');return;}if(started&&!characterMenuOpen&&!switching){if(!P.grounded){toast('先落到地面，再打开行囊吧');return;}equipment.setOpen(!equipment.open);}};
 function syncCharacterUI(){
  equipment.apply();equipment.sync();
@@ -272,7 +272,7 @@ async function selectCharacter(id){
  finally{if(ticket===selectionSerial){switching=false;$('startBtn').disabled=false;$('startBtn').textContent=started?'继续散步 →':'走进森林 →';}}
 }
 setupTitleSelection({document,selectCharacter,startGame,isReady:()=>!switching&&!document.body.classList.contains('is-loading')});
-$('bCharacter').onclick=()=>{if(totoro.occupied)useTotoroBed();if(catbus.riding){toast('先下车，再换一位伙伴吧');return;}if(document.pointerLockElement)document.exitPointerLock();characterMenuOpen=true;P.vel.set(0,0,0);P.jumpBuf=0;for(const k in keys)keys[k]=false;touch.x=touch.y=0;P.heading=cam.yaw;$('title').classList.remove('hide');$('loadingWallpaper').play?.()?.catch?.(()=>{});$('startBtn').textContent='继续散步 →';document.querySelector('.cover-character.selected')?.focus?.();};
+$('bCharacter').onclick=()=>{if(totoro.occupied)useTotoroBed();if(catbus.riding){toast('先下车，再换一位伙伴吧');return;}if(document.pointerLockElement)document.exitPointerLock();characterMenuOpen=true;sprint.reset();P.vel.set(0,0,0);P.jumpBuf=0;for(const k in keys)keys[k]=false;touch.x=touch.y=0;P.heading=cam.yaw;$('title').classList.remove('hide');$('loadingWallpaper').play?.()?.catch?.(()=>{});$('startBtn').textContent='继续散步 →';document.querySelector('.cover-character.selected')?.focus?.();};
 syncCharacterUI();
 
 
@@ -309,7 +309,7 @@ function nearCanopy(){if(!elderSanctuary||!P.grounded)return false;const s=elder
 function useCanopy(){if(!started||characterMenuOpen||equipment.open||busy()||portalTrip)return;const s=elderSanctuary;if(P.pos.y<s.canopy.minY){portalTrip={position:s.canopy.seat.clone(),upper:true,canopy:true,time:0,moved:false};P.vel.set(0,0,0);P.vy=0;portalFade.classList.add('active');}else{canopySeated=!canopySeated;P.idle=canopySeated?10:0;P.vel.set(0,0,0);toast(canopySeated?'坐在叶子上吹吹风 · 方向键即可起身':'起来走走吧');}}
 
 // ---------------- actions ----------------
-function performAction(index){if(catbus.riding)return;if(!started||characterMenuOpen||switching||equipment.open||!P.grounded)return;const action=CHARACTER_DEFS[characterId].actions[index][0];if(cat.triggerAction(action)){$('actionMenu').hidden=true;canopySeated=false;P.idle=0;P.vel.multiplyScalar(.08);}}
+function performAction(index){if(catbus.riding)return;if(!started||characterMenuOpen||switching||equipment.open||!P.grounded)return;const action=CHARACTER_DEFS[characterId].actions[index][0];if(cat.triggerAction(action)){clearMovement();$('actionMenu').hidden=true;canopySeated=false;P.idle=0;P.vel.multiplyScalar(.08);}}
 
 let roarGust = 0, pendingRoar = -1, pendingInvite = false, inviteT = -1;
 // 龙猫大人的小游戏：吼完一声后邀请玩家玩《咚！伞上的雨滴》
@@ -529,14 +529,15 @@ function updateCat(dt) {
     if (keys['a'] || keys['arrowleft']) ix -= 1;
     if (keys['d'] || keys['arrowright']) ix += 1;
     ix += touch.x; iy += touch.y;
+    if(sprint.autoForward)iy=Math.max(1,iy);
   }
   if (params.has('walk')) { iy = 1; if (params.get('walk') === 'run') keys['shift'] = true; }
   cameraBasis(camera,fwd,right);
   dir.set(0, 0, 0).addScaledVector(fwd, iy).addScaledVector(right, ix);
   const mag = (cat.isPerforming||characterMenuOpen||switching)?0:Math.min(1,dir.length());
   if(cat.isPerforming||characterMenuOpen||switching)dir.set(0,0,0);
-  const running = sprint.update(dt,iy>0,keys['shift']||keys['ShiftLeft'],mag>.05)||touch.run||params.get('walk')==='run';
-  $('sprintStatus').hidden=!running||mag<.05;
+  const running = sprint.update(dt,!!(keys.w||keys.arrowup),keys['shift']||keys['ShiftLeft'],mag>.05)||touch.run||params.get('walk')==='run';
+  $('sprintStatus').hidden=!running||mag<.05;$('sprintStatus').textContent=sprint.autoForward?'自动前进中 · W / S / 空格停止':'奔跑中 · Shift 切换走路';
   if (mag > 0.05) {
     canopySeated=false;
     dir.normalize();
@@ -600,6 +601,7 @@ function updateCat(dt) {
   }
 
   waterRecovery.remember(P.pos,P.grounded);
+  sprint.observeProgress(Math.hypot(P.pos.x-previousPosition.x,P.pos.z-previousPosition.z),dt,P.grounded);
   if(characterMenuOpen)P.idle=0;
   cat.root.position.copy(P.pos);
   cat.root.rotation.y = P.heading;

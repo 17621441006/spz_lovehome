@@ -1,0 +1,134 @@
+[
+  {
+    "id": "temple",
+    "detail": "near",
+    "triangles": 240407,
+    "errorMax": 0.000281939166598022,
+    "bytes": 11275520,
+    "path": "assets/temple.glb",
+    "sha256": "c5fa53825d52d5061c30d3bcb23db1632d4934f038594d9fcd7df55b5fb1c8d1",
+    "bounds": {
+      "min": [
+        -0.4999542236328125,
+        0,
+        -0.441436767578125
+      ],
+      "max": [
+        0.4999542832374573,
+        0.8905029296875,
+        0.441436767578125
+      ]
+    },
+    "textureSize": 4096,
+    "interior": {
+      "floorY": 0.1046,
+      "ceilingY": 0.292,
+      "beamBottomY": 0.282,
+      "room": {
+        "minX": -0.177,
+        "maxX": 0.177,
+        "minZ": -0.201,
+        "maxZ": 0.083
+      },
+      "door": {
+        "minX": -0.0865,
+        "maxX": 0.0865,
+        "minY": 0.1046,
+        "maxY": 0.274,
+        "minZ": 0.075,
+        "maxZ": 0.31
+      },
+      "frontAxis": "+Z",
+      "worldScaleSuggested": 11.6
+    }
+  },
+  {
+    "id": "temple",
+    "detail": "far",
+    "triangles": 40397,
+    "errorMax": 0.001793992705643177,
+    "bytes": 2359452,
+    "path": "assets/temple-lod.glb",
+    "sha256": "3ed8355febad271307c92d5d7d4b9043566c9e08be18df9894a66bc9b29b9a12",
+    "bounds": {
+      "min": [
+        -0.4999237060546875,
+        0.00079345703125,
+        -0.4414061903953552
+      ],
+      "max": [
+        0.4998932480812073,
+        0.889984130859375,
+        0.440826416015625
+      ]
+    },
+    "textureSize": 1024,
+    "interior": {
+      "floorY": 0.1046,
+      "ceilingY": 0.292,
+      "beamBottomY": 0.282,
+      "room": {
+        "minX": -0.177,
+        "maxX": 0.177,
+        "minZ": -0.201,
+        "maxZ": 0.083
+      },
+      "door": {
+        "minX": -0.0865,
+        "maxX": 0.0865,
+        "minY": 0.1046,
+        "maxY": 0.274,
+        "minZ": 0.075,
+        "maxZ": 0.31
+      },
+      "frontAxis": "+Z",
+      "worldScaleSuggested": 11.6
+    }
+  },
+  {
+    "id": "pagoda",
+    "detail": "near",
+    "triangles": 319998,
+    "errorMax": 0.0002660459722392261,
+    "bytes": 11590916,
+    "path": "assets/pagoda.glb",
+    "sha256": "3af96fc8b4173155db67fe3325e45fedd5602da0f51e16a7f57ad49dfe4e6104",
+    "bounds": {
+      "min": [
+        -0.297882080078125,
+        0.0001220703125,
+        -0.2973022162914276
+      ],
+      "max": [
+        0.297882080078125,
+        1,
+        0.2973022162914276
+      ]
+    },
+    "textureSize": 4096,
+    "interior": null
+  },
+  {
+    "id": "pagoda",
+    "detail": "far",
+    "triangles": 40000,
+    "errorMax": 0.001723603461869061,
+    "bytes": 1717956,
+    "path": "assets/pagoda-lod.glb",
+    "sha256": "d1de06dfc15ae63a00d44dd561eeec7278c4df2fdfb299017b5c26ab4af8d12a",
+    "bounds": {
+      "min": [
+        -0.29705810546875,
+        0.000152587890625,
+        -0.2969665229320526
+      ],
+      "max": [
+        0.2977294921875,
+        0.99957275390625,
+        0.2973022162914276
+      ]
+    },
+    "textureSize": 1024,
+    "interior": null
+  }
+]

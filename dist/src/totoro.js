@@ -1,3 +1,4 @@
+import {createTotoroNest} from './totoro-nest.js';
 import {projectObstacles,clearGround,companionSearch} from './creature-navigation.js';
 // Totoro family: big Totoro (with leaf umbrella), Chu & Chibi Totoro, and soot sprites (susuwatari)
 import * as THREE from 'three';
@@ -150,14 +151,15 @@ function buildTotoro(o) {
   // feet & arms
   const clawMat = toon('#3a3734');
   const footColor = o.color;
+  const feet=[];
   for (const sx of [-1, 1]) {
+    const foot=new THREE.Group();foot.position.set(sx*.85*k,.15*k,.75*k);inner.add(foot);feet.push(foot);
     const f = makeFur(sphereGeo(0.55 * k, 0.28 * k, 0.72 * k), { ...furOpts, length: furLen * 0.6, shells: 8, density: [40, 20], colorFn: () => [footColor, 1] });
-    f.position.set(sx * 0.85 * k, 0.15 * k, 0.75 * k);
-    inner.add(f);
+    foot.add(f);
     if (o.claws) for (let c = -1; c <= 1; c++) {
       const cl = new THREE.Mesh(new THREE.ConeGeometry(0.06 * k, 0.22 * k, 6), clawMat);
-      cl.rotation.x = Math.PI / 2; cl.position.set(sx * 0.85 * k + c * 0.2 * k, 0.12 * k, 1.42 * k);
-      inner.add(cl);
+      cl.rotation.x = Math.PI / 2; cl.position.set(c*.2*k,-.03*k,.67*k);
+      foot.add(cl);
     }
   }
   const arms = [];
@@ -184,7 +186,7 @@ function buildTotoro(o) {
   const sc = new THREE.Mesh(new THREE.LatheGeometry(pts.filter((_, i) => i % 4 === 0), 12), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
   sc.scale.z = ZS; sc.castShadow = true; inner.add(sc);
 
-  return { group: g, inner, eyes, mouth, arms, face, time, displace, k, rAt, surfZ };
+  return { group: g, inner, eyes, mouth, arms, feet, face, time, displace, k, rAt, surfZ };
 }
 
 // ======================= Big Totoro =======================
@@ -225,7 +227,7 @@ export class BigTotoro {
     this.umbrella.scale.setScalar(0.001);
     this.wobble = 0; this.wobbleV = 0;
     this.grin = 0; this.roarT = 0; this.blinkT = 3; this.t = 0;
-    this.bounceCD = 0;this.restClock=45;this.sleep=0;this.sleeping=false;this.occupied=false;this.path=[];this.repath=0;this.home=this.group.position.clone();
+    this.bounceCD = 0;this.restClock=45;this.sleep=0;this.sleeping=false;this.occupied=false;this.path=[];this.repath=0;this.home=this.group.position.clone();this.nest=createTotoroNest(scene,this.home,this.baseYaw,colliders);
   }
   bellyPoint(out=new THREE.Vector3()){this.group.updateMatrixWorld(true);return this.inner.localToWorld(out.set(0,1.75*this.k,1.72*this.k+.10));}
   exitPoint(){for(let r=4.6;r<8;r+=.6)for(let i=0;i<16;i++){const a=i*Math.PI/8,p=this.group.position.clone();p.x+=Math.sin(a)*r;p.z+=Math.cos(a)*r;if(clearGround(p.x,p.z,.5,colliders,this.collider)){p.y=heightAt(p.x,p.z);return p;}}return null;}
@@ -233,16 +235,19 @@ export class BigTotoro {
   bounce() { if (this.bounceCD > 0) return false; this.bounceCD = 0.4; this.wobbleV += 3.5; this.grin = 1.4; return true; }
   update(dt, catPos, rain) {
     this.t += dt; this.time.value = this.t;
-    this.restClock-=dt;if(!this.occupied){if(rain>.3){this.sleeping=false;this.restClock=45;}else if(this.restClock<=0){this.sleeping=!this.sleeping;this.restClock=this.sleeping?65:100+Math.random()*70;}}
+    this.restClock-=dt;if(!this.occupied){if(rain>.3){this.sleeping=false;this.restClock=45;}else if(this.restClock<=0&&this.group.position.distanceTo(this.home)<.12){this.sleeping=!this.sleeping;this.restClock=this.sleeping?65:100+Math.random()*70;}}
     this.sleep+=(+(this.sleeping||this.occupied)-this.sleep)*(1-Math.exp(-1.4*dt));
     let moving=false;this.repath-=dt;
-    if(rain>.3&&!this.occupied&&this.sleep<.02&&this.roarT<=0&&Math.abs(catPos.y-this.group.position.y)<3){
-     const d=Math.hypot(catPos.x-this.group.position.x,catPos.z-this.group.position.z);
-     if(d>3.5&&this.repath<=0){if(!this.search)this.search=companionSearch(this.group.position.clone(),catPos.clone(),colliders,this.collider);this.repath=4;}
+    const returning=rain<=.3&&this.group.position.distanceTo(this.home)>.35;
+    if(this.returning!==returning){this.returning=returning;this.search=null;this.path=[];this.repath=0;}
+    if(!this.occupied&&this.sleep<.02&&this.roarT<=0&&(returning||rain>.3&&Math.abs(catPos.y-this.group.position.y)<3)){
+     const goal=returning?this.home:catPos,arrival=returning?.35:3.1,d=Math.hypot(goal.x-this.group.position.x,goal.z-this.group.position.z);
+     if(d>arrival&&this.repath<=0){if(!this.search)this.search=companionSearch(this.group.position.clone(),goal.clone(),colliders,this.collider,returning?.6:3.25);this.repath=3;}
      if(this.search)for(let batch=0;batch<2;batch++){const result=this.search.next();if(result.done){this.path=result.value;this.search=null;break;}}
-     if(d>3.1&&this.path.length){const p=this.path[0],dx=p.x-this.group.position.x,dz=p.z-this.group.position.z,dist=Math.hypot(dx,dz),step=Math.min(dist,dt*1.5);const x=this.group.position.x+dx/(dist||1)*step,z=this.group.position.z+dz/(dist||1)*step;if(clearGround(x,z,1.9,colliders,this.collider)){this.group.position.x=x;this.group.position.z=z;moving=true;}else{this.path=[];this.repath=0;}if(dist<.18)this.path.shift();}
+     if(returning&&d<1.3)this.path=[{x:this.home.x,z:this.home.z}];
+     if(d>arrival&&this.path.length){const p=this.path[0],dx=p.x-this.group.position.x,dz=p.z-this.group.position.z,dist=Math.hypot(dx,dz),step=Math.min(dist,dt*1.5);const x=this.group.position.x+dx/(dist||1)*step,z=this.group.position.z+dz/(dist||1)*step;if(clearGround(x,z,1.9,colliders,this.collider)){this.group.position.x=x;this.group.position.z=z;moving=true;this.moveYaw=Math.atan2(dx,dz);}else{this.path=[];this.repath=0;}if(dist<.18)this.path.shift();}
     }
-    if(rain<=.3||this.occupied){this.search=null;this.path=[];}
+    if(this.occupied||rain<=.3&&!returning){this.search=null;this.path=[];if(!this.occupied)this.group.position.lerp(this.home,1-Math.exp(-4*dt));}
     this.group.position.y=heightAt(this.group.position.x,this.group.position.z)-.05;
     if(this.collider){this.collider.x=this.group.position.x;this.collider.z=this.group.position.z;this.collider.r=1.9+this.sleep*.6;}
 
@@ -255,13 +260,14 @@ export class BigTotoro {
     // look at the cat
     const dx = catPos.x - this.group.position.x, dz = catPos.z - this.group.position.z;
     const d = Math.hypot(dx, dz);
-    let target = rain>.3?Math.atan2(dx,dz):this.baseYaw;
-    if (d < 12 && rain<=.3) {
+    let target = moving?this.moveYaw:rain>.3?Math.atan2(dx,dz):this.baseYaw;
+    if (d < 12 && rain<=.3&&!moving&&this.restClock>4&&!this.sleeping) {
       let a = Math.atan2(dx, dz) - this.baseYaw;
       a = Math.atan2(Math.sin(a), Math.cos(a));
       target = this.baseYaw + Math.max(-0.8, Math.min(0.8, a));
     }
-    if(this.sleep<.1)this.group.rotation.y += Math.atan2(Math.sin(target-this.group.rotation.y),Math.cos(target-this.group.rotation.y))*Math.min(1,dt*1.5);
+    if(this.sleeping||this.sleep>.02||this.occupied)target=this.baseYaw;
+    this.group.rotation.y += Math.atan2(Math.sin(target-this.group.rotation.y),Math.cos(target-this.group.rotation.y))*Math.min(1,dt*1.5);
     // blink
     this.blinkT -= dt;
     let eyeS = this.sleep>.5?.06:1;
@@ -280,17 +286,19 @@ export class BigTotoro {
     this.mouth.visible = open > 0.03;
     this.mouth.scale.set(0.6 + open * 0.4, open, 1);
     for (const e of this.eyes) e.scale.y += (eyeS - e.scale.y) * Math.min(1, dt * 25);
-    this.inner.rotation.x = open * 0.12-this.sleep*Math.PI/2;
-    this.inner.position.set(0,this.sleep*1.72+(moving?Math.abs(Math.sin(this.t*5))*.035:0),this.sleep*2.1);
+    this.inner.rotation.x = open*.12-this.sleep*1.466;
+    this.inner.position.set(0,this.sleep*1.66+(moving?Math.abs(Math.sin(this.t*5))*.035:0),this.sleep*2.1);
     this.inner.rotation.z=moving?Math.sin(this.t*5)*.035:0;
+    for(const [i,foot]of this.feet.entries()){foot.position.set((i?1:-1)*.85*this.k,(.15-.45*this.sleep)*this.k,THREE.MathUtils.lerp(.75,-1.2/this.inner.scale.z,this.sleep)*this.k);foot.rotation.x=this.sleep*1.466;}
+    // Bend the arms toward the moss instead of keeping the standing pose aloft.
     // umbrella in the rain
     this.umbrellaAmt += ((rain > 0.3 && this.sleep<.1 ? 1 : 0) - this.umbrellaAmt) * Math.min(1, dt * 2);
     const u = this.umbrellaAmt;
-    this.arms[0].rotation.x = -1.15 * u;
+    this.arms[0].rotation.x = -1.15*u+.45*this.sleep;
     this.arms[0].rotation.z = 0.1 * u;
     this.umbrella.rotation.x = 1.15 * u;
     this.umbrella.scale.setScalar(Math.max(0.001, u));
-    this.arms[1].rotation.x = -0.6 * open;
+    this.arms[1].rotation.x = -.6*open+.45*this.sleep;
     this.arms[1].rotation.z = 0.5 * open;
   }
 }
