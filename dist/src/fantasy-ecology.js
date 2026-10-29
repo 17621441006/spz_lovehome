@@ -1,3 +1,4 @@
+import {villageLaneDistance} from './village-routes.js';
 // 原创奇幻生态：3款吉卜力风奇幻生物（森铃苔团·莫莫、乘风绒尾兽·噗噗、听雨笠蛙灵·滴答）
 // 与 3款奇幻植物（风吟橡果灯笼木、晴雨呼吸伞菇群、泡泡水琴草）
 import * as THREE from 'three';
@@ -60,6 +61,9 @@ function preparePrototype(sceneRoot, targetHeight) {
   return wrapper;
 }
 
+// Keep later decorative assets out of the full reserved bus corridor.
+function clearLane(cfg){if(villageLaneDistance(cfg.x,cfg.z)>4.7)return;for(let r=.5;r<12;r+=.5)for(let i=0;i<24;i++){const a=i*Math.PI/12,x=cfg.x+Math.cos(a)*r,z=cfg.z+Math.sin(a)*r;if(villageLaneDistance(x,z)<4.7||heightAt(x,z)<-.1)continue;if(colliders.some(c=>c.type==='circle'&&Math.hypot(x-c.x,z-c.z)<c.r+1.4))continue;cfg.x=x;cfg.z=z;return;}}
+
 // Pick a random point inside a distant forest roam zone that avoids tree trunks
 function pickForestWaypoint(cfg) {
   for (let attempt = 0; attempt < 16; attempt++) {
@@ -112,6 +116,7 @@ export async function addFantasyEcology(scene) {
     { x: -16.5, z: 11.2, scale: 1.05, yaw: 0.65, label: '森铃苔团 · 莫莫' },
   ];
   for (const [idx, cfg] of momoSpots.entries()) {
+    clearLane(cfg);
     const inst = protoMomo.clone(true);
     const y = heightAt(cfg.x, cfg.z);
     inst.position.set(cfg.x, y, cfg.z);
@@ -211,6 +216,7 @@ export async function addFantasyEcology(scene) {
     { x: -6.8, z: -47.2, scale: 0.96, yaw: 0.55, label: '星湖笠蛙灵 · 滴答' },
   ];
   for (const [idx, cfg] of didaSpots.entries()) {
+    clearLane(cfg);
     const inst = protoDida.clone(true);
     const y = heightAt(cfg.x, cfg.z);
     inst.position.set(cfg.x, y, cfg.z);
@@ -248,6 +254,7 @@ export async function addFantasyEcology(scene) {
     { x: -8.5, z: -31.0, scale: 1.02, yaw: 1.15, hasLight: false },
   ];
   for (const [idx, cfg] of acornTreeSpots.entries()) {
+    clearLane(cfg);
     const inst = protoAcornTree.clone(true);
     const y = heightAt(cfg.x, cfg.z) - 0.05;
     inst.position.set(cfg.x, y, cfg.z);
@@ -299,6 +306,7 @@ export async function addFantasyEcology(scene) {
   ];
 
   for (const [idx, cfg] of shroomSpots.entries()) {
+    clearLane(cfg);
     const inst = protoWeatherShroom.clone(true);
     const y = heightAt(cfg.x, cfg.z) - (cfg.isBridge ? 0.18 : 0.05);
     inst.position.set(cfg.x, y, cfg.z);
@@ -368,6 +376,7 @@ export async function addFantasyEcology(scene) {
     { x: -1.85, z: -48.5, y: LAYOUT.lake.level + 0.02, scale: 1.12, yaw: 0.35 },
   ];
   for (const [idx, cfg] of reedSpots.entries()) {
+    clearLane(cfg);
     const inst = protoMelodyReed.clone(true);
     inst.position.set(cfg.x, cfg.y, cfg.z);
     inst.rotation.y = cfg.yaw;

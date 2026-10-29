@@ -1,5 +1,6 @@
 import {loadGLB} from './asset-stream.js';
 import * as THREE from 'three';
+import {solveLimb,setWorldQuaternion} from './limb-ik.js';
 
 // 脏脏包 v19: the rig, skin weights and every clip are authored offline in Blender
 // (see scripts/blender/). Runtime only blends clips, fan pose and gentle secondary motion;
@@ -38,7 +39,7 @@ export class ModelCat{
   this.state=null;this.oneShot=null;this.queuedAction=null;this.chainReady=null;this.cooldown=0;
   this.time=0;this.meow=0;this.lieAmt=0;this.sitBlend=0;this.moveBlend=0;this.fanEquipped=false;this.fanPose=0;this.fanOpen=0;this.expression='default';
   this.lastHeading=0;this.turnLean=0;
-  this.setFanEquipped(false);
+  this.setFanEquipped(true);
   this.play('wait',0);this.mixer.update(0);this.model.position.y=this.baseY=.004;
  }
  setFanEquipped(value){this.fanEquipped=!!value;this.rig.fan.visible=this.fanEquipped;return this.fanEquipped;}
@@ -66,6 +67,16 @@ export class ModelCat{
   if(name==='walk'||name==='run')a.timeScale=THREE.MathUtils.clamp(speed/CAT_CLIP_SPEED[name],.55,1.9);
   this.mixer.update(dt);
   if(this.chainReady){const chained=this.chainReady;this.chainReady=null;this.oneShot=chained;this.play(chained,.07,true);this.mixer.update(0);}
+  // Preserve the authored fore/aft stride and ankle orientation; bring each foot
+  // toward its own hip so the short legs no longer splay sideways when running.
+  if(name==='run'){
+   this.root.updateMatrixWorld(true);
+   for(const side of ['Left','Right']){const up=this.bones[side+'UpLeg'],leg=this.bones[side+'Leg'],foot=this.bones[side+'Foot'];
+    const q=foot.getWorldQuaternion(new THREE.Quaternion()),p=this.model.worldToLocal(foot.getWorldPosition(new THREE.Vector3())),hip=this.model.worldToLocal(up.getWorldPosition(new THREE.Vector3()));
+    p.x=THREE.MathUtils.lerp(p.x,hip.x,.62);const pole=this.model.worldToLocal(leg.getWorldPosition(new THREE.Vector3()));pole.x=hip.x;pole.z+=.18;
+    solveLimb(up,leg,foot,this.model.localToWorld(p),this.model.localToWorld(pole));setWorldQuaternion(foot,q);
+   }
+  }
   const k=1-Math.exp(-8*dt);
   this.sitBlend+=((name==='sit'?1:0)-this.sitBlend)*k;
   this.moveBlend+=((name==='walk'||name==='run'?1:0)-this.moveBlend)*k;

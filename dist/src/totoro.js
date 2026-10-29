@@ -1,3 +1,4 @@
+import {projectObstacles,clearGround,companionSearch} from './creature-navigation.js';
 // Totoro family: big Totoro (with leaf umbrella), Chu & Chibi Totoro, and soot sprites (susuwatari)
 import * as THREE from 'three';
 import { makeFur } from './fur.js';
@@ -224,31 +225,46 @@ export class BigTotoro {
     this.umbrella.scale.setScalar(0.001);
     this.wobble = 0; this.wobbleV = 0;
     this.grin = 0; this.roarT = 0; this.blinkT = 3; this.t = 0;
-    this.bounceCD = 0;
+    this.bounceCD = 0;this.restClock=45;this.sleep=0;this.sleeping=false;this.occupied=false;this.path=[];this.repath=0;this.home=this.group.position.clone();
   }
+  bellyPoint(out=new THREE.Vector3()){this.group.updateMatrixWorld(true);return this.inner.localToWorld(out.set(0,1.75*this.k,1.72*this.k+.10));}
+  exitPoint(){for(let r=4.6;r<8;r+=.6)for(let i=0;i<16;i++){const a=i*Math.PI/8,p=this.group.position.clone();p.x+=Math.sin(a)*r;p.z+=Math.cos(a)*r;if(clearGround(p.x,p.z,.5,colliders,this.collider)){p.y=heightAt(p.x,p.z);return p;}}return null;}
   roar() { if (this.roarT <= 0) { this.roarT = 2.2; return true; } return false; }
   bounce() { if (this.bounceCD > 0) return false; this.bounceCD = 0.4; this.wobbleV += 3.5; this.grin = 1.4; return true; }
   update(dt, catPos, rain) {
     this.t += dt; this.time.value = this.t;
+    this.restClock-=dt;if(!this.occupied){if(rain>.3){this.sleeping=false;this.restClock=45;}else if(this.restClock<=0){this.sleeping=!this.sleeping;this.restClock=this.sleeping?65:100+Math.random()*70;}}
+    this.sleep+=(+(this.sleeping||this.occupied)-this.sleep)*(1-Math.exp(-1.4*dt));
+    let moving=false;this.repath-=dt;
+    if(rain>.3&&!this.occupied&&this.sleep<.02&&this.roarT<=0&&Math.abs(catPos.y-this.group.position.y)<3){
+     const d=Math.hypot(catPos.x-this.group.position.x,catPos.z-this.group.position.z);
+     if(d>3.5&&this.repath<=0){if(!this.search)this.search=companionSearch(this.group.position.clone(),catPos.clone(),colliders,this.collider);this.repath=4;}
+     if(this.search)for(let batch=0;batch<2;batch++){const result=this.search.next();if(result.done){this.path=result.value;this.search=null;break;}}
+     if(d>3.1&&this.path.length){const p=this.path[0],dx=p.x-this.group.position.x,dz=p.z-this.group.position.z,dist=Math.hypot(dx,dz),step=Math.min(dist,dt*1.5);const x=this.group.position.x+dx/(dist||1)*step,z=this.group.position.z+dz/(dist||1)*step;if(clearGround(x,z,1.9,colliders,this.collider)){this.group.position.x=x;this.group.position.z=z;moving=true;}else{this.path=[];this.repath=0;}if(dist<.18)this.path.shift();}
+    }
+    if(rain<=.3||this.occupied){this.search=null;this.path=[];}
+    this.group.position.y=heightAt(this.group.position.x,this.group.position.z)-.05;
+    if(this.collider){this.collider.x=this.group.position.x;this.collider.z=this.group.position.z;this.collider.r=1.9+this.sleep*.6;}
+
     this.bounceCD -= dt;
     // breathe & belly wobble
     this.wobbleV += (-this.wobble * 90 - this.wobbleV * 6) * dt;
     this.wobble += this.wobbleV * dt;
     const br = Math.sin(this.t * 1.2) * 0.012;
-    this.inner.scale.set(1 + this.wobble * 0.1, 1 + br - this.wobble * 0.08, 1 + this.wobble * 0.12);
+    this.inner.scale.set(1 + this.wobble * 0.1, 1 + br - this.wobble * 0.08, 1 + this.wobble * 0.12+this.sleep*(.035+.035*Math.sin(this.t*1.4)));
     // look at the cat
     const dx = catPos.x - this.group.position.x, dz = catPos.z - this.group.position.z;
     const d = Math.hypot(dx, dz);
-    let target = this.baseYaw;
-    if (d < 12) {
+    let target = rain>.3?Math.atan2(dx,dz):this.baseYaw;
+    if (d < 12 && rain<=.3) {
       let a = Math.atan2(dx, dz) - this.baseYaw;
       a = Math.atan2(Math.sin(a), Math.cos(a));
       target = this.baseYaw + Math.max(-0.8, Math.min(0.8, a));
     }
-    this.group.rotation.y += (target - this.group.rotation.y) * Math.min(1, dt * 1.5);
+    if(this.sleep<.1)this.group.rotation.y += Math.atan2(Math.sin(target-this.group.rotation.y),Math.cos(target-this.group.rotation.y))*Math.min(1,dt*1.5);
     // blink
     this.blinkT -= dt;
-    let eyeS = 1;
+    let eyeS = this.sleep>.5?.06:1;
     if (this.blinkT < 0.15) eyeS = 0.1;
     if (this.blinkT < 0) this.blinkT = 2.5 + Math.random() * 4;
     // roar
@@ -264,9 +280,11 @@ export class BigTotoro {
     this.mouth.visible = open > 0.03;
     this.mouth.scale.set(0.6 + open * 0.4, open, 1);
     for (const e of this.eyes) e.scale.y += (eyeS - e.scale.y) * Math.min(1, dt * 25);
-    this.inner.rotation.x = open * 0.12;
+    this.inner.rotation.x = open * 0.12-this.sleep*Math.PI/2;
+    this.inner.position.set(0,this.sleep*1.72+(moving?Math.abs(Math.sin(this.t*5))*.035:0),this.sleep*2.1);
+    this.inner.rotation.z=moving?Math.sin(this.t*5)*.035:0;
     // umbrella in the rain
-    this.umbrellaAmt += ((rain > 0.3 ? 1 : 0) - this.umbrellaAmt) * Math.min(1, dt * 2);
+    this.umbrellaAmt += ((rain > 0.3 && this.sleep<.1 ? 1 : 0) - this.umbrellaAmt) * Math.min(1, dt * 2);
     const u = this.umbrellaAmt;
     this.arms[0].rotation.x = -1.15 * u;
     this.arms[0].rotation.z = 0.1 * u;
@@ -389,11 +407,17 @@ export class SootSprites {
       u.vel.lerp(desired, Math.min(1, dt * 5));
       u.pos.addScaledVector(u.vel, dt);
       if (u.pos.z > zMax && Math.abs(u.pos.x - LAYOUT.house.x) < 6) u.pos.z = zMax;
+      projectObstacles(u.pos,.22*g.scale.x,colliders);
       const sp = u.vel.length();
       const hop = Math.abs(Math.sin(t * (sp > 1.5 ? 16 : 5))) * (sp > 1.5 ? 0.25 : 0.06);
       g.position.set(u.pos.x, heightAt(u.pos.x, u.pos.z) + 0.12 + hop, u.pos.z);
       if (sp > 0.2) g.rotation.y = Math.atan2(u.vel.x, u.vel.z);
       else { const a = Math.atan2(catPos.x - u.pos.x, catPos.z - u.pos.z); g.rotation.y += (a - g.rotation.y) * 0.05; }
     }
+    for(let pass=0;pass<4;pass++){
+     for(let i=0;i<this.list.length;i++)for(let j=i+1;j<this.list.length;j++){const a=this.list[i],b=this.list[j],p=a.userData.pos,q=b.userData.pos,dx=p.x-q.x,dz=p.z-q.z,d=Math.hypot(dx,dz),rr=.22*(a.scale.x+b.scale.x)+.025;if(d<rr){const nx=d>1e-6?dx/d:Math.cos(i*2.4),nz=d>1e-6?dz/d:Math.sin(i*2.4),push=(rr-d)/2;p.x+=nx*push;p.z+=nz*push;q.x-=nx*push;q.z-=nz*push;}}
+     for(const g of this.list)projectObstacles(g.userData.pos,.22*g.scale.x,colliders);
+    }
+    for(const g of this.list){g.position.x=g.userData.pos.x;g.position.z=g.userData.pos.z;g.position.y=Math.max(g.position.y,heightAt(g.position.x,g.position.z)+.21*g.scale.x);}
   }
 }

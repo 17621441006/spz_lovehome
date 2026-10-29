@@ -1,3 +1,5 @@
+import {WeatherCycle} from './weather-cycle.js';
+import {SprintControl} from './sprint-control.js';
 import {setupDisplayControls} from './display-controls.js';
 import {IslandOcean} from './ocean.js';
 import {TreeOcclusion} from './tree-occlusion.js';
@@ -115,9 +117,10 @@ function loadExtras(){if(extrasStarted)return;extrasStarted=true;
 const CAT_R = 0.42;
 
 // Totoro is a big soft trampoline
-colliders.push({
+const totoroCollider={
   type: 'circle', x: LAYOUT.totoro.x, z: LAYOUT.totoro.z, r: 1.9, top: 999,
   onHit(n) {
+    if(totoro.sleep>.1||totoro.occupied)return;
     if (!totoro.bounce()) return;
     P.vel.set(n.x * 6.5, 0, n.z * 6.5);
     P.vy = 10.5; P.grounded = false;
@@ -125,8 +128,9 @@ colliders.push({
     sound.boing();
     say(['噗叽~', 'boing!', '软乎乎~', '肚子好弹！'][Math.floor(Math.random() * 4)], () => totoroHead(), 1.4, true);
   },
-});
+};
 
+totoro.collider=totoroCollider;colliders.push(totoroCollider);
 // ---------------- camera ----------------
 const cam = { yaw: 0.35, pitch: 0.32, dist: 5.8, target: new THREE.Vector3().copy(P.pos), dragging: false };
 if (params.get('cam')) {
@@ -135,7 +139,7 @@ if (params.get('cam')) {
 }
 
 // ---------------- input ----------------
-const keys = {};
+const keys = {};const sprint=new SprintControl();
 let started = false;
 addEventListener('keydown', (e) => {
   if (!started || busy() || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
@@ -145,9 +149,9 @@ addEventListener('keydown', (e) => {
   if(k==='b'&&!e.repeat){e.preventDefault();if(!characterMenuOpen&&!switching&&P.grounded)equipment.setOpen(!equipment.open);return;}
   if(equipment.open){if(k==='escape')equipment.setOpen(false);return;}
   if(e.repeat && [' ','e','j','k','c','x'].includes(k))return;
-  keys[k] = true; keys[e.code] = true;
+  sprint.down(k,performance.now()/1000,e.repeat);keys[k] = true; keys[e.code] = true;
   if (k === ' ') { P.jumpBuf = 0.15; e.preventDefault(); }
-  if (k === 'e') {if(nearCanopy())useCanopy();else if(!catbus.riding&&nearKeeper())talkToKeeper();else if(catbus.riding||P.pos.distanceTo(catbus.root.position)<6&&!nearTotoro())openBusDialog();else meow();}
+  if (k === 'e') {if(totoro.occupied||nearTotoro()&&totoro.sleep>.85)useTotoroBed();else if(nearCanopy())useCanopy();else if(!catbus.riding&&nearKeeper())talkToKeeper();else if(catbus.riding||P.pos.distanceTo(catbus.root.position)<6&&!nearTotoro())openBusDialog();else meow();}
   if(k==='j')performAction(0);
   if(k==='k')performAction(1);
   if (k === 'r') toggleRain();
@@ -158,7 +162,7 @@ addEventListener('keydown', (e) => {
   if (k === 'h') toggleUI();
 });
 addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; keys[e.code] = false; });
-function clearMovement(){for(const k in keys)keys[k]=false;touch.x=touch.y=0;P.vel.set(0,0,0);P.jumpBuf=0;dragId=null;}
+function clearMovement(){sprint.reset();for(const k in keys)keys[k]=false;touch.x=touch.y=0;P.vel.set(0,0,0);P.jumpBuf=0;dragId=null;}
 addEventListener('blur',clearMovement);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)clearMovement();});
 
@@ -210,24 +214,26 @@ const $ = (id) => document.getElementById(id);
 $('acornTotal').textContent = acorns.total;
 function openBusDialog(){if(!started||characterMenuOpen||equipment.open)return;if(document.pointerLockElement)document.exitPointerLock();clearMovement();$('busDialog').hidden=false;$('busMessage').textContent=catbus.riding?'想在这里歇一歇吗？我会慢慢停稳，再让你下车。':'喵～要搭一程吗？我们慢慢逛森林，不赶时间。';$('busClose').focus();$('busBoard').hidden=catbus.riding;$('busExit').hidden=!catbus.riding;}
 $('busPrompt').onclick=openBusDialog;
-$('actPrompt').onclick=()=>{if($('actPrompt').dataset.target==='canopy')useCanopy();else if($('actPrompt').dataset.target==='keeper')talkToKeeper();else meow();};
+$('actPrompt').onclick=()=>{if($('actPrompt').dataset.target==='canopy')useCanopy();else if($('actPrompt').dataset.target==='keeper')talkToKeeper();else if(totoro.occupied||totoro.sleep>.85)useTotoroBed();else meow();};
 $('busClose').onclick=()=>{$('busDialog').hidden=true;};
 $('busBoard').onclick=()=>{if(catbus.speed>.05){$('busMessage').textContent='等我停稳一下，再点「上车慢游」就好。';return;}catbus.riding=true;catbus.stopping=false;catbus.wait=1;cat.model.rotation.y=0;cat.oneShot=null;P.jumpBuf=0;clearMovement();$('busDialog').hidden=true;};
 $('busExit').onclick=()=>{catbus.stopping=true;$('busDialog').hidden=true;toast('猫车正在缓缓停车…');};
 
+const weatherCycle=new WeatherCycle();
 const env = { rain: 0, snow: 0, night: 0, rainT: 0, snowT: 0, nightT: 0, sun:1, sunT:1 };
 if (params.has('rain')) env.rain = env.rainT = 1;
 if (params.has('night')) env.night = env.nightT = 1;
 if(params.has('snow')){env.snow=env.snowT=1;env.rain=env.rainT=0;}
 function currentWeather(){return env.snowT?'snow':env.rainT?'rain':env.nightT?'night':env.sunT?'sun':'cloud';}
-function syncWeatherUI(){const chosen=currentWeather();for(const [id,value]of [['bSun','sun'],['bCloud','cloud'],['bRain','rain'],['bSnow','snow'],['bNight','night']]){$(id).classList.toggle('on',chosen===value);$(id).setAttribute('aria-pressed',String(chosen===value));}$('bWeather').textContent=({sun:'☀',cloud:'☁',rain:'☂',snow:'❄',night:'☾'}[chosen])+' 天气';}
-function chooseWeather(type){env.rainT=+(type==='rain');env.snowT=+(type==='snow');env.nightT=+(type==='night');env.sunT=+(type==='sun');syncWeatherUI();closePopover('weather');}
+function syncWeatherUI(){const chosen=currentWeather();for(const [id,value]of [['bSun','sun'],['bCloud','cloud'],['bRain','rain'],['bSnow','snow'],['bNight','night']]){$(id).classList.toggle('on',chosen===value);$(id).setAttribute('aria-pressed',String(chosen===value));}$('bAutoWeather').textContent=weatherCycle.auto?'✓ 天气自然轮换':'开启天气自然轮换';$('bAutoWeather').setAttribute('aria-pressed',String(weatherCycle.auto));$('bWeather').textContent=({sun:'☀',cloud:'☁',rain:'☂',snow:'❄',night:'☾'}[chosen])+' 天气';}
+function chooseWeather(type,automatic=false){if(!automatic)weatherCycle.manual();env.rainT=+(type==='rain');env.snowT=+(type==='snow');env.nightT=+(type==='night');env.sunT=+(type==='sun');syncWeatherUI();closePopover('weather');}
 function toggleRain(){chooseWeather(currentWeather()==='rain'?'sun':'rain');}
 function toggleSnow(){chooseWeather(currentWeather()==='snow'?'sun':'snow');}
 function toggleNight(){chooseWeather(currentWeather()==='night'?'sun':'night');}
 function closePopover(name){$(name+'Panel').hidden=true;$(name==='weather'?'bWeather':'bHelp').setAttribute('aria-expanded','false');}
 function togglePopover(name){const panel=$(name+'Panel'),open=panel.hidden;closePopover(name==='weather'?'help':'weather');panel.hidden=!open;$(name==='weather'?'bWeather':'bHelp').setAttribute('aria-expanded',String(open));if(open){if(document.pointerLockElement)document.exitPointerLock();clearMovement();$(name+'Close').focus();}}
 $('bWeather').onclick=()=>togglePopover('weather');$('bHelp').onclick=()=>togglePopover('help');$('weatherClose').onclick=()=>{closePopover('weather');$('bWeather').focus();};$('helpClose').onclick=()=>{closePopover('help');$('bHelp').focus();};
+$('bAutoWeather').onclick=()=>{weatherCycle.auto?weatherCycle.manual():weatherCycle.resume();syncWeatherUI();};
 $('bSun').onclick=()=>chooseWeather('sun');$('bCloud').onclick=()=>chooseWeather('cloud');
 addEventListener('keydown',e=>{if(e.key==='Escape'){closePopover('weather');closePopover('help');}});
 document.addEventListener('pointerdown',e=>{for(const n of ['weather','help']){const b=$(n==='weather'?'bWeather':'bHelp');if(!$(n+'Panel').contains(e.target)&&!b.contains(e.target))closePopover(n);}});
@@ -235,7 +241,7 @@ function toggleUI() { document.body.classList.toggle('hidden-ui'); }
 setupDisplayControls({document,listen:addEventListener,clearMovement,toast});
 $('bActions').onclick=()=>{const open=$('actionMenu').hidden;$('actionMenu').hidden=!open;$('bActions').setAttribute('aria-expanded',String(open));if(open){document.exitPointerLock?.();clearMovement();}};
 $('bSit').onclick=()=>{toggleSit();$('actionMenu').hidden=true;};
-function toggleSit(){if(!started||characterMenuOpen||switching||equipment.open||catbus.riding||!P.grounded||cat.isPerforming)return;canopySeated=!canopySeated;P.idle=0;P.vel.set(0,0,0);}
+function toggleSit(){if(totoro.occupied){useTotoroBed();return;}if(!started||characterMenuOpen||switching||equipment.open||catbus.riding||!P.grounded||cat.isPerforming)return;canopySeated=!canopySeated;P.idle=0;P.vel.set(0,0,0);}
 $('bMusic').onclick=()=>{if(document.pointerLockElement)document.exitPointerLock();$('musicPanel').hidden=!$('musicPanel').hidden;};
 $('musicClose').onclick=()=>{$('musicPanel').hidden=true;};
 $('musicVolume').oninput=e=>sound.setMusicVolume(Number(e.target.value)/100);
@@ -248,7 +254,7 @@ $('bSnow').onclick=toggleSnow;syncWeatherUI();
 $('bRain').onclick = toggleRain; $('bNight').onclick = toggleNight; $('bHide').onclick = toggleUI;
 $('bSound').onclick = () => { sound.setEnabled(!sound.enabled); $('bSound').classList.toggle('on', sound.enabled); $('bSound').textContent = sound.enabled ? '🔊' : '🔇'; };
 const equipment=new EquipmentPanel({renderer,getActor:()=>cat,getCharacter:()=>({id:characterId,name:CHARACTER_DEFS[characterId].name}),getAcorns:()=>({count:Number($('acornCount').textContent),total:acorns.total}),onToggle:()=>{P.vel.set(0,0,0);P.jumpBuf=0;P.idle=0;touch.x=touch.y=0;for(const k in keys)keys[k]=false;$('musicPanel').hidden=true;}});
-$('bEquipment').onclick=()=>{if(catbus.riding){toast('先让猫车停稳下车，再打开行囊吧');return;}if(started&&!characterMenuOpen&&!switching){if(!P.grounded){toast('先落到地面，再打开行囊吧');return;}equipment.setOpen(!equipment.open);}};
+$('bEquipment').onclick=()=>{if(totoro.occupied)useTotoroBed();if(catbus.riding){toast('先让猫车停稳下车，再打开行囊吧');return;}if(started&&!characterMenuOpen&&!switching){if(!P.grounded){toast('先落到地面，再打开行囊吧');return;}equipment.setOpen(!equipment.open);}};
 function syncCharacterUI(){
  equipment.apply();equipment.sync();
  const def=CHARACTER_DEFS[characterId],isCat=characterId==='zangzangbao';
@@ -257,7 +263,7 @@ function syncCharacterUI(){
  $('characterNote').textContent=def.subtitle;$('tMeow').textContent=isCat?'喵':'招呼';$('interactionGuide').textContent=isCat?'喵一声（对龙猫喵试试看）':'和森林里的朋友打个招呼';
  def.actions.forEach(([_,label],i)=>{const key=i?'K':'J',button=$(i?'bKick2':'bKick1');button.innerHTML='<kbd>'+key+'</kbd> '+label;button.title=key+'：'+label;});
  $('gestureGuide').textContent=def.actions.map(a=>a[1]).join(' / ')+(isCat?'（连按可衔接）':'');
- $('hint').textContent='WASD 移动 · Shift 跑 · 空格 跳 · E '+(isCat?'喵':'招呼')+' · J / K 角色动作 · B 装备 · C 坐下 · 点击画面锁定鼠标转视角 · Esc 释放';
+ $('hint').textContent='WASD 移动 · Shift 切换跑/走 · 双击 W 奔跑 · 空格 跳 · E '+(isCat?'喵':'招呼')+' · J / K 角色动作 · B 装备 · C 坐下 · 点击画面锁定鼠标转视角 · Esc 释放';
 }
 async function selectCharacter(id){
  const ticket=++selectionSerial;switching=true;$('startBtn').disabled=true;$('loadStatus').textContent='加载角色…';
@@ -266,7 +272,7 @@ async function selectCharacter(id){
  finally{if(ticket===selectionSerial){switching=false;$('startBtn').disabled=false;$('startBtn').textContent=started?'继续散步 →':'走进森林 →';}}
 }
 for(const b of document.querySelectorAll('[data-character]'))b.onclick=()=>selectCharacter(b.dataset.character);
-$('bCharacter').onclick=()=>{if(catbus.riding){toast('先下车，再换一位伙伴吧');return;}if(document.pointerLockElement)document.exitPointerLock();characterMenuOpen=true;P.vel.set(0,0,0);P.jumpBuf=0;for(const k in keys)keys[k]=false;touch.x=touch.y=0;P.heading=cam.yaw;$('title').classList.remove('hide');$('loadingWallpaper').play?.()?.catch?.(()=>{});$('startBtn').textContent='继续散步 →';$('startBtn').focus();};
+$('bCharacter').onclick=()=>{if(totoro.occupied)useTotoroBed();if(catbus.riding){toast('先下车，再换一位伙伴吧');return;}if(document.pointerLockElement)document.exitPointerLock();characterMenuOpen=true;P.vel.set(0,0,0);P.jumpBuf=0;for(const k in keys)keys[k]=false;touch.x=touch.y=0;P.heading=cam.yaw;$('title').classList.remove('hide');$('loadingWallpaper').play?.()?.catch?.(()=>{});$('startBtn').textContent='继续散步 →';$('startBtn').focus();};
 syncCharacterUI();
 
 
@@ -314,7 +320,7 @@ const totoroGame = new TotoroRainGame({
   onClose(result) {
     clearMovement(); totoroCD = 4;
     if (!result) { say('呼噜……下次再来玩哦', totoroHead, 2); return; }
-    soot.scatter(new THREE.Vector3(LAYOUT.totoro.x, 0, LAYOUT.totoro.z), 30);
+    soot.scatter(totoro.group.position.clone(), 30);
     if (result.stars > 0) {
       say('呼噜噜～谢谢你！', totoroHead, 2.4, true);
       const gifts = result.gained.map((g) => g.icon + ' ' + g.name + (g.count > 1 ? ' ×' + g.count : '')).join('、');
@@ -325,17 +331,17 @@ const totoroGame = new TotoroRainGame({
 // ---------------- v20: who can we talk to, and the new mini-games ----------------
 const TOTORO_TALK = 5.2, KEEPER_TALK = 3.2;
 let totoroCD = 0, keeperTalking = false;
-const nearTotoro = () => Math.hypot(P.pos.x - LAYOUT.totoro.x, P.pos.z - LAYOUT.totoro.z) < TOTORO_TALK;
+const nearTotoro = () => totoro.occupied || Math.hypot(P.pos.x - totoro.group.position.x, P.pos.z - totoro.group.position.z) < TOTORO_TALK;
 const nearKeeper = () => Math.hypot(P.pos.x - KEEPER_POS.x, P.pos.z - KEEPER_POS.z) < KEEPER_TALK;
 function busy() { return totoroGame.open || roarContest.open || fishing.open || keeperTalking || isDialogOpen(); }
 function enterMinigame() { if (document.pointerLockElement) document.exitPointerLock(); clearMovement(); document.body.classList.add('minigame'); }
 function leaveMinigame() { clearMovement(); document.body.classList.remove('minigame'); }
 const roarContest = new RoarContest({
   totoro, sound, say, totoroHead: () => totoroHead(),
-  soot: () => soot.scatter(new THREE.Vector3(LAYOUT.totoro.x, 0, LAYOUT.totoro.z), 40),
+  soot: () => soot.scatter(totoro.group.position.clone(), 40),
   shot(on) {
     if (!on) { delete cam.fixed; return; }
-    const T = new THREE.Vector3(LAYOUT.totoro.x, P.pos.y, LAYOUT.totoro.z), toP = P.pos.clone().sub(T).setY(0).normalize();
+    const T = new THREE.Vector3(totoro.group.position.x, P.pos.y, totoro.group.position.z), toP = P.pos.clone().sub(T).setY(0).normalize();
     P.heading = Math.atan2(-toP.x, -toP.z);
     // over-the-shoulder: behind and a little beside the player, looking up at Totoro's face
     const side = new THREE.Vector3(-toP.z, 0, toP.x);
@@ -394,9 +400,9 @@ function meow() {
   if(characterId==='zangzangbao')sound.meow();
   say(characterId==='zangzangbao'?['喵~', '喵呜！', '喵？', '咪～'][Math.floor(Math.random()*4)]:'嗨，一起散步吧！',catHead,1.3);
   soot.scatter(P.pos, 6); fantasyEcology.onGreet(P.pos, say, sound);
-  const dT = Math.hypot(P.pos.x - LAYOUT.totoro.x, P.pos.z - LAYOUT.totoro.z);
+  const dT = Math.hypot(P.pos.x - totoro.group.position.x, P.pos.z - totoro.group.position.z);
   // Totoro only reacts when you are right in front of him (his belly collider is ~1.9m)
-  if (dT < TOTORO_TALK && totoro.roarT <= 0 && totoroCD <= 0) { pendingRoar = 0.7; pendingInvite = true; }
+  if (totoro.sleep<.1 && dT < TOTORO_TALK && totoro.roarT <= 0 && totoroCD <= 0) { pendingRoar = 0.7; pendingInvite = true; }
   for (const s of [chu, chibi]) if (Math.hypot(P.pos.x - s.pos.x, P.pos.z - s.pos.z) < 5) { s.target.set(s.pos.x * 2 - P.pos.x, 0, s.pos.z * 2 - P.pos.z); s.fleeing = true; }
 }
 
@@ -503,7 +509,14 @@ function updateEnv(dt) {
 const fwd = new THREE.Vector3(), right = new THREE.Vector3(), dir = new THREE.Vector3(), nrm = new THREE.Vector3();
 let splashCD = 0, lieSaid = false, zzzT = 0;
 const previousPosition=new THREE.Vector3(),actualVelocity=new THREE.Vector3();
+function useTotoroBed(){
+ if(totoro.occupied){const exit=totoro.exitPoint();if(!exit){toast('旁边暂时没有空位，稍等一下');return;}totoro.occupied=false;P.pos.copy(exit);P.grounded=true;P.vy=0;P.idle=0;canopySeated=false;cat.root.position.copy(P.pos);clearMovement();return;}
+ if(totoro.sleep<.85||!nearTotoro()||catbus.riding||busy())return;
+ totoro.occupied=true;totoro.sleeping=true;clearMovement();P.idle=0;pendingRoar=0;inviteT=0;toast('软乎乎的肚子 · E、空格或移动键起身');
+}
 function updateCat(dt) {
+ if(totoro.occupied){if(keys[' ']||keys.w||keys.a||keys.s||keys.d||touch.x||touch.y){useTotoroBed();}else{totoro.bellyPoint(P.pos);P.vel.set(0,0,0);P.vy=0;P.grounded=false;cat.root.position.copy(P.pos);cat.root.rotation.y=totoro.group.rotation.y;cat.update(dt,{speed:0,grounded:true,idle:0,sitting:true});return;}}
+
   if(catbus.riding){catbus.seat(P.pos);P.heading=catbus.yaw;P.vel.set(0,0,0);P.vy=0;P.grounded=false;cat.root.position.copy(P.pos);cat.root.rotation.y=P.heading;cat.update(dt,{speed:0,running:false,grounded:true,vy:0,idle:0,sitting:true,vel:P.vel});return;}
   if(!document.getElementById('busDialog').hidden||busy()){P.vel.set(0,0,0);if(fishing.open)return;cat.update(dt,{speed:0,grounded:true,vy:0,idle:0});return;}
 
@@ -522,7 +535,7 @@ function updateCat(dt) {
   dir.set(0, 0, 0).addScaledVector(fwd, iy).addScaledVector(right, ix);
   const mag = (cat.isPerforming||characterMenuOpen||switching)?0:Math.min(1,dir.length());
   if(cat.isPerforming||characterMenuOpen||switching)dir.set(0,0,0);
-  const running = keys['shift'] || keys['ShiftLeft'] || touch.run;
+  const running = sprint.update(dt,iy>0,keys['shift']||keys['ShiftLeft'],mag>.05)||touch.run||params.get('walk')==='run';
   if (mag > 0.05) {
     canopySeated=false;
     dir.normalize();
@@ -637,6 +650,7 @@ function frame() {
   const dt = Math.min((now - lastT) / 1000, 1 / 30);
   lastT = now;
   elapsed += dt;
+  if(started&&!characterMenuOpen&&!equipment.open&&!busy()){const next=weatherCycle.update(dt,currentWeather());if(next)chooseWeather(next,true);}
   updateEnv(dt);
   updateCrystals(elapsed,env.night);
   updateElderGlade(elapsed,env.night); fantasyEcology.update(dt,elapsed,P.pos,env,roarGust,say,sound);
@@ -644,11 +658,12 @@ function frame() {
   catbus.paused=!started||characterMenuOpen||equipment.open||!$('busDialog').hidden;
   catbus.update(dt,[...roster.cache.values()].filter(a=>!(catbus.riding&&a===cat)).map(a=>a.root.position).concat([chu.group.position,chibi.group.position]));
   $('busPrompt').hidden=!started||characterMenuOpen||equipment.open||(!catbus.riding&&P.pos.distanceTo(catbus.root.position)>6);
-  {const near=!started||characterMenuOpen||equipment.open||catbus.riding||busy()?null:nearCanopy()?'canopy':nearKeeper()?'keeper':nearTotoro()?'totoro':null,ap=$('actPrompt');ap.hidden=!near;if(near){$('busPrompt').hidden=true;const label=near==='canopy'?(P.pos.y<elderSanctuary.canopy.minY?'E / 点击 · 去树冠观景':canopySeated?'E / 点击 · 起身':'E / 点击 · 坐在树叶上观景'):near==='keeper'?'E / 点击 · 和阿渔伯说话（钓鱼）':'E / 点击 · 和龙猫大人打招呼';if(ap.textContent!==label)ap.textContent=label;ap.dataset.target=near;}}
+  {const near=!started||characterMenuOpen||equipment.open||catbus.riding||busy()?null:nearCanopy()?'canopy':nearKeeper()?'keeper':nearTotoro()?'totoro':null,ap=$('actPrompt');ap.hidden=!near;if(near){$('busPrompt').hidden=true;const label=near==='canopy'?(P.pos.y<elderSanctuary.canopy.minY?'E / 点击 · 去树冠观景':canopySeated?'E / 点击 · 起身':'E / 点击 · 坐在树叶上观景'):near==='keeper'?'E / 点击 · 和阿渔伯说话（钓鱼）':totoro.occupied?'E / 点击 · 离开龙猫的肚子':totoro.sleep>.85?'E / 点击 · 坐在龙猫肚子上':'E / 点击 · 和龙猫大人打招呼';if(ap.textContent!==label)ap.textContent=label;ap.dataset.target=near;}}
   $('busPrompt').textContent=catbus.riding?((catbus.wait>0?'停靠 · '+catbus.stationName:catbus.blocked?'正在礼让行人':catbus.currentRoute?.name||'村庄漫游')+' · E / 点击 下车'):'E / 点击 与猫车对话';
   if(catbus.stopping&&catbus.speed<.025&&catbus.riding){const exit=catbus.exitPoint();if(exit){catbus.riding=false;catbus.stopping=false;catbus.wait=8;P.pos.copy(exit);cat.root.position.copy(exit);P.grounded=true;P.idle=0;P.vel.set(0,0,0);toast('到啦，慢慢下车。');}}
 
   updateCamera(dt);
+  if(started&&!characterMenuOpen&&!busy())totoro.update(dt,P.pos,env.rain);
   if(!portalTrip)updateCat(dt);
   const destination=elderSanctuary?.update(dt,P.pos,started&&!characterMenuOpen&&!equipment.open&&!catbus.riding&&!portalTrip&&!busy()&&P.grounded);
   if(destination){portalTrip={...destination,time:0,moved:false};P.vel.set(0,0,0);P.vy=0;portalFade.classList.add('active');}
@@ -672,7 +687,7 @@ function frame() {
   floatUniforms.uPix.value = renderer.getPixelRatio() * innerHeight / 900;
 
   roarContest.update(dt);
-  totoro.update(dt, P.pos, env.rain);
+
   chu.update(dt, P.pos, chibi);
   chibi.update(dt, P.pos, chu);
   soot.update(dt, P.pos);
@@ -686,17 +701,17 @@ function frame() {
     if (pendingRoar <= 0 && totoro.roar()) {
       roarGust = 1; sound.roar();
       say('嗷呜————！', totoroHead, 2, true);
-      soot.scatter(new THREE.Vector3(LAYOUT.totoro.x, 0, LAYOUT.totoro.z), 40);
+      soot.scatter(totoro.group.position.clone(), 40);
       if (pendingInvite) { pendingInvite = false; inviteT = 2.1; }
     }
   }
   totoroCD -= dt;
   // Rainy days: Totoro wants to catch raindrops; otherwise: the moonlit roar contest.
-  if (inviteT > 0) { inviteT -= dt; if (inviteT <= 0 && started && !characterMenuOpen && !equipment.open && !catbus.riding && !busy() && nearTotoro()) { if (env.rain > 0.3) totoroGame.invite(); else roarContest.invite(CHARACTER_DEFS[characterId].name); } }
+  if (inviteT > 0) { inviteT -= dt; if (inviteT <= 0 && started && !characterMenuOpen && !equipment.open && !catbus.riding && !busy() && totoro.sleep<.1 && nearTotoro()) { if (env.rain > 0.3) totoroGame.invite(); else roarContest.invite(CHARACTER_DEFS[characterId].name); } }
   if (totoro.roarT > 0.2) roarGust = Math.min(1, roarGust + dt * 3); else roarGust = Math.max(0, roarGust - dt * 1.5);
-  grassUniforms.uRoar.value.set(LAYOUT.totoro.x, LAYOUT.totoro.z, roarGust * 1.4, 0);
+  grassUniforms.uRoar.value.set(totoro.group.position.x, totoro.group.position.z, roarGust * 1.4, 0);
   if (roarContest.open && roarContest.gust > 0.05) grassUniforms.uRoar.value.set(P.pos.x, P.pos.z, roarContest.gust * 1.8, 0);
-  const toCat = new THREE.Vector3(P.pos.x - LAYOUT.totoro.x, 0, P.pos.z - LAYOUT.totoro.z);
+  const toCat = new THREE.Vector3(P.pos.x - totoro.group.position.x, 0, P.pos.z - totoro.group.position.z);
   const dT = toCat.length(); toCat.normalize();
   furEnv.uWind.value.copy(toCat).multiplyScalar(roarGust * 3.5 * Math.exp(-dT * 0.12));
 
@@ -752,5 +767,5 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   snow.setPixelRatio?.(renderer.getPixelRatio());
 });
-window.__game = { fishing, roarContest, lake, talkToKeeper, P, cam, get catbus(){return catbus;},get elderSanctuary(){return elderSanctuary;}, sunShafts,ocean,detailStream, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment, fantasyEcology };
+window.__game = { fishing, roarContest, lake, talkToKeeper, P, cam, get catbus(){return catbus;},get elderSanctuary(){return elderSanctuary;}, sunShafts,ocean,detailStream,weatherCycle,sprint,useTotoroBed, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment, fantasyEcology };
 $('startBtn').disabled=false; $('startBtn').textContent='走进森林 →'; $('loadStatus').textContent='';finishStartup();document.body.classList.remove('is-loading');

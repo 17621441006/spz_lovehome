@@ -8,8 +8,8 @@ export class EquipmentPanel {
   this.renderer=renderer;this.getActor=getActor;this.getCharacter=getCharacter;this.onToggle=onToggle;this.getAcorns=getAcorns;this.tab="all";this.selected="fan";
   this.el=document.getElementById('equipmentModal');this.stage=document.getElementById('equipmentStage');this.open=false;this.angle=.18;
   this.outfits={};try{this.outfits=JSON.parse(localStorage.getItem('zzb-outfits-v12')||'{}');}catch{}
-  this.fan=false;this.expression='default';
-  try{this.fan=localStorage.getItem('zzb-fan-equipped')==='true';localStorage.setItem('zzb-expression','default');}catch{}
+  this.fan=true;this.expression='default';
+  try{this.fan=localStorage.getItem('zzb-fan-equipped-v24')!=='false';localStorage.setItem('zzb-expression','default');}catch{}
   this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#e9eddb');
   this.scene.add(new THREE.HemisphereLight('#fff5dc','#789571',2.2));
   const light=new THREE.DirectionalLight('#fff5e6',2.6);light.position.set(-2,4,4);this.scene.add(light);
@@ -32,7 +32,7 @@ export class EquipmentPanel {
   for(const ev of ['pointerup','pointercancel'])this.stage.addEventListener(ev,()=>this.dragX=undefined);
   this.apply();this.sync();
  }
- save(){try{localStorage.setItem('zzb-fan-equipped',String(this.fan));localStorage.setItem('zzb-expression',this.expression);localStorage.setItem('zzb-outfits-v12',JSON.stringify(this.outfits));}catch{}}
+ save(){try{localStorage.setItem('zzb-fan-equipped-v24',String(this.fan));localStorage.setItem('zzb-expression',this.expression);localStorage.setItem('zzb-outfits-v12',JSON.stringify(this.outfits));}catch{}}
  apply(){const actor=this.getActor();actor.setFanEquipped?.(this.fan);actor.setExpression?.(this.expression);actor.setOutfit?.(this.outfits[this.getCharacter().id]||'original');}
  sync(){
   const {id,name}=this.getCharacter(),isCat=id==='zangzangbao';

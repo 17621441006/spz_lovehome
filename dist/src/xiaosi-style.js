@@ -32,6 +32,19 @@ export function dressXiaosi(actor){
  const cloth=makeMat('#102653',0,.92);cloth.side=THREE.DoubleSide;
  const panel=new THREE.SkinnedMesh(panelGeo,cloth);panel.name='连续闭合的海军蓝衣身衬层';panel.bind(body.skeleton,body.bindMatrix);panel.frustumCulled=false;panel.castShadow=true;body.parent.add(panel);
 
+ // Closed soft sleeves fitted around the upper arms. Their full circumference
+ // follows the arm bone, including the underside exposed during the back swing.
+ for(const side of ['Left','Right']){
+  const upper=actor.bones[side+'UpperArm'],lower=actor.bones[side+'ForeArm'];
+  const start=body.worldToLocal(upper.getWorldPosition(new THREE.Vector3())),end=body.worldToLocal(lower.getWorldPosition(new THREE.Vector3()));
+  const axis=end.clone().sub(start).normalize(),u=new THREE.Vector3(0,0,1).cross(axis).normalize(),v=axis.clone().cross(u).normalize();
+  const p=[],ix=[],j=[],w=[],rings=10,segments=28;
+  for(let r=0;r<=rings;r++){const t=r/rings,center=start.clone().lerp(end,-.16+t*.91),radius=.060+.012*Math.sin(t*Math.PI);
+   for(let c=0;c<=segments;c++){const a=c/segments*Math.PI*2,pt=center.clone().addScaledVector(u,Math.cos(a)*radius).addScaledVector(v,Math.sin(a)*radius);p.push(...pt.toArray());j.push(boneIndex(side+'UpperArm'),0,0,0);w.push(1,0,0,0);if(r<rings&&c<segments){const n=r*(segments+1)+c;ix.push(n,n+1,n+segments+1,n+1,n+segments+2,n+segments+1);}}
+  }
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(j,4));g.setAttribute('skinWeight',new THREE.Float32BufferAttribute(w,4));g.setIndex(ix);g.computeVertexNormals();const sleeve=new THREE.SkinnedMesh(g,cloth);sleeve.name=side+' · 完整袖筒';sleeve.bind(body.skeleton,body.bindMatrix);sleeve.frustumCulled=false;sleeve.castShadow=true;body.parent.add(sleeve);
+ }
+
  const halfUp=group('小司 · 齐肩半扎丸子头');
  // The reference has a compact bun high at the back, not a hanging ponytail.
  const bunCenter=new THREE.Vector3(.055,1.435,-.155),bunGeo=new THREE.SphereGeometry(.062,40,28);

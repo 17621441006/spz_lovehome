@@ -1,3 +1,4 @@
+import {animateCatBus} from './catbus-motion.js';
 import {loadGLB} from './asset-stream.js';
 import * as THREE from 'three';
 import {heightAt,LAYOUT,edgeRadius,inLakeWater} from './terrain.js';
@@ -9,6 +10,7 @@ export class CatBus{
  constructor(scene,colliders,model){this.ready=true;this.root=new THREE.Group();this.root.name='林间猫车';this.root.add(model);const b=new THREE.Box3().setFromObject(model),size=b.getSize(new THREE.Vector3()),c=b.getCenter(new THREE.Vector3());model.position.sub(new THREE.Vector3(c.x,b.min.y,c.z));this.root.scale.setScalar(5.8/size.z);this.root.updateMatrixWorld(true);this.root.scale.setScalar(1);model.scale.setScalar(5.8/size.z);model.position.multiplyScalar(5.8/size.z);
  model.traverse(o=>{if(!o.isMesh)return;o.castShadow=o.receiveShadow=true;for(const m of Array.isArray(o.material)?o.material:[o.material]){m.metalness=0;m.roughness=.9;if(m.map)m.map.anisotropy=8;}});
 
+ this.animate=animateCatBus(model);
  this.staticColliders=colliders.slice();this.speed=0;this.yaw=0;this.riding=false;this.paused=false;this.stopping=false;this.wait=4;this.visited=0;this.completedLines=0;this.stationHistory=[];this.personHold=0;
  this.routes=VILLAGE_LINES.map((line,n)=>{
   const curve=VILLAGE_CURVES[n];curve.arcLengthDivisions=2500;curve.updateArcLengths();const length=curve.getLength(),count=Math.ceil(length/.18),points=curve.getSpacedPoints(count);const samples=points.map((p,i)=>{const t=i/count,d=curve.getTangentAt(Math.min(1,t)),angle=Math.atan2(d.x,d.z);return {p:p.setY(heightAt(p.x,p.z)),yaw:angle};});
@@ -32,7 +34,7 @@ export class CatBus{
  seat(out=new THREE.Vector3()){return out.set(0,1.08,-.25).applyQuaternion(this.root.quaternion).add(this.root.position);}
  exitPoint(){for(const side of [-1,1])for(const off of [2,2.6,3.2]){const p=this.root.position.clone().add(new THREE.Vector3(Math.cos(this.yaw)*side*off,0,-Math.sin(this.yaw)*side*off));const blocked=!this.safe(p.x,p.z,.55);if(!blocked){p.y=heightAt(p.x,p.z);return p;}}return null;}
  update(dt,people=[]){
-  dt=Math.min(.1,Math.max(0,dt));this.wait=Math.max(0,this.wait-dt);const route=this.currentRoute,stop=route.stops[this.nextStop],end=stop?.s??route.length,remaining=Math.max(0,end-this.distance);
+  dt=Math.min(.1,Math.max(0,dt));this.animate(dt,this.speed);this.wait=Math.max(0,this.wait-dt);const route=this.currentRoute,stop=route.stops[this.nextStop],end=stop?.s??route.length,remaining=Math.max(0,end-this.distance);
   let target=3;for(let d=0;d<=8;d+=.65){const at=this.sample(this.distance+d);target=Math.min(target,Math.sqrt(at.limit*at.limit+2*.85*d));}
   target=Math.min(target,Math.sqrt(2*.85*Math.max(0,remaining-.025)));
   const pedestrian=this.personDistance(people);this.blocked=Number.isFinite(pedestrian);if(pedestrian<1.0)this.personHold=.7;else this.personHold=Math.max(0,this.personHold-dt);

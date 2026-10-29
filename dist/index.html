@@ -233,7 +233,7 @@ body:not(.is-loading) #title .card,.load-error #title .card{position:absolute;in
         <p class="tagline">沿着水光与石阶，去拜访森林里的朋友。没有赶路的任务，只有慢慢发现的惊喜。</p>
       </header>
       <section class="pick-block" aria-label="选择角色并出发">
-        <img id="titlePortrait" src="assets/characters/zangzangbao-preview.png" alt="脏脏包" />
+        <img id="titlePortrait" src="assets/characters/zangzangbao-front-v24.png" alt="脏脏包" />
         <p id="characterNote">发间系着风，指尖藏着星光</p>
         <div class="pick-ribbon">
           <div class="character-label">今天，谁来散步？</div>
@@ -244,7 +244,7 @@ body:not(.is-loading) #title .card,.load-error #title .card{position:absolute;in
           </div>
           <div class="pick-actions"><button class="big" id="startBtn" disabled>走进森林 →</button>
           <details class="guide"><summary title="散步指南" aria-label="散步指南">?</summary><div class="keys">
-            <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>走动（按住 <kbd>Shift</kbd> 跑步）</span>
+            <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>走动（轻按 <kbd>Shift</kbd> 切换跑 / 走）</span>
             <span><kbd>空格</kbd></span><span>跳跃（试试撞龙猫的大肚子！）</span>
             <span><kbd>E</kbd></span><span id="interactionGuide">喵一声（对龙猫喵试试看）</span>
             <span><kbd>J</kbd> / <kbd>K</kbd></span><span id="gestureGuide">两种踢腿（连按可衔接）</span>
@@ -260,7 +260,7 @@ body:not(.is-loading) #title .card,.load-error #title .card{position:absolute;in
   </div>
 
   <div id="hud">
-    <img id="characterPortrait" src="assets/characters/zangzangbao-preview.png" alt="" />
+    <img id="characterPortrait" src="assets/characters/zangzangbao-front-v24.png" alt="" />
     <div><div class="name" id="characterName">脏脏包</div><div class="acorn">🌰 橡果 <b id="acornCount">0</b> / <span id="acornTotal">0</span></div></div>
   </div>
   <div id="tools">
@@ -289,8 +289,8 @@ body:not(.is-loading) #title .card,.load-error #title .card{position:absolute;in
     <button id="forestMusic">恢复森林配乐 · 四首轮播</button><button id="nextMusic" class="file-button">下一首 →</button><small>可选择你有权使用的《龙猫》原声音频。<br>仅在你的浏览器播放，不会上传。</small>
   </aside>
 
-  <aside id="weatherPanel" class="forest-popover" hidden role="dialog" aria-labelledby="weatherTitle"><header><strong id="weatherTitle">森林的天气</strong><button id="weatherClose" aria-label="收起天气">×</button></header><div class="weather-grid"><button id="bSun" type="button">☀<span>林间晴光</span></button><button id="bCloud" type="button">☁<span>柔光白昼</span></button><button id="bRain" type="button">☂<span>轻柔细雨</span></button><button id="bSnow" type="button">❄<span>林间落雪</span></button><button id="bNight" type="button">☾<span>星月夜晚</span></button></div></aside>
-  <aside id="helpPanel" class="forest-popover" hidden role="dialog" aria-labelledby="helpTitle"><header><strong id="helpTitle">操作说明</strong><button id="helpClose" aria-label="收起操作说明">×</button></header><div class="help-keys"><kbd>W A S D</kbd><span>移动 · Shift 跑步</span><kbd>空格</kbd><span>跳跃</span><kbd>E</kbd><span>打招呼 / 与猫车对话</span><kbd>J / K</kbd><span>角色动作</span><kbd>B / C</kbd><span>装备 / 坐下</span><kbd>鼠标</kbd><span>点击画面后转动视角，滚轮缩放；Esc 释放</span><kbd>R / V / N</kbd><span>细雨 / 下雪 / 夜晚</span></div><p id="hint"></p><p id="place"></p></aside>
+  <aside id="weatherPanel" class="forest-popover" hidden role="dialog" aria-labelledby="weatherTitle"><header><strong id="weatherTitle">森林的天气</strong><button id="weatherClose" aria-label="收起天气">×</button></header><button id="bAutoWeather" type="button" aria-pressed="true">✓ 天气自然轮换</button><div class="weather-grid"><button id="bSun" type="button">☀<span>林间晴光</span></button><button id="bCloud" type="button">☁<span>柔光白昼</span></button><button id="bRain" type="button">☂<span>轻柔细雨</span></button><button id="bSnow" type="button">❄<span>林间落雪</span></button><button id="bNight" type="button">☾<span>星月夜晚</span></button></div></aside>
+  <aside id="helpPanel" class="forest-popover" hidden role="dialog" aria-labelledby="helpTitle"><header><strong id="helpTitle">操作说明</strong><button id="helpClose" aria-label="收起操作说明">×</button></header><div class="help-keys"><kbd>W A S D</kbd><span>移动 · Shift 切换跑/走；双击 W 后按住奔跑</span><kbd>空格</kbd><span>跳跃，并恢复走路</span><kbd>E</kbd><span>打招呼 / 与猫车对话</span><kbd>J / K</kbd><span>角色动作</span><kbd>B / C</kbd><span>装备 / 坐下</span><kbd>鼠标</kbd><span>点击画面后转动视角，滚轮缩放；Esc 释放</span><kbd>R / V / N</kbd><span>细雨 / 下雪 / 夜晚</span></div><p id="hint"></p><p id="place"></p></aside>
   <div id="actions"><button id="bActions" aria-expanded="false">☷ 动作</button><div id="actionMenu" hidden><button id="bSit">坐下 / 起身</button><button id="bKick1" title="J：踢腿"><kbd>J</kbd> 踢腿</button><button id="bKick2" title="K：花式踢腿"><kbd>K</kbd> 花式踢</button></div></div>
   <aside id="settingsPanel" class="forest-popover" hidden role="dialog" aria-label="游戏设置"><header><strong>游戏设置</strong><button id="settingsClose" aria-label="关闭游戏设置">×</button></header><button id="fullscreenToggle" class="file-button" aria-pressed="false">进入全屏</button><p>全屏使用整个屏幕。按 Esc 退出全屏，也可恢复隐藏的界面。</p></aside>
   <button id="restoreUI" aria-label="退出纯净视野">退出纯净视野 · Esc</button>
