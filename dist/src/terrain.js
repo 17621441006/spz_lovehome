@@ -3,34 +3,8 @@ import * as THREE from 'three';
 import {villageLaneDistance} from './village-routes.js';
 import { toon, rng } from './toon.js';
 
-export const LAYOUT = {
-  spawn: { x: 0, z: 6 },
-  roadX: 18,
-  bus: { x: 16.5, z: -6 },
-  totoro: { x: 13.2, z: -8.2 },
-  camphor: { x: -14, z: -16 },
-  house: { x: -6, z: 21 },
-  pond: { x: 8, z: 5, r: 3.3 },
-  // v20: a new northern lobe of land holding the big lake and the fishing pier
-  lake: { x: -4, z: -60, r: 11.5, level: -0.32 },
-  lakeLobe: 34, lakeLobeWidth: 0.43,
-  sprout: { x: 2, z: -13 },
-  playRadius: 49,
-  terrainRadius: 54,
-  treeLimit: 47,
-  elder: {x:-28,z:0,flat:10.5,blend:14},
-  catbusRoute: {x:22,z:-23,rx:8,rz:11},
-  inari: {x:23, z:11, endZ:35.8},
-  buildings: [
-    {id:'shrine',name:'山下听风亭',x:9,z:35,width:6*Math.SQRT2,flat:5.65,rotation:Math.PI},
-    {id:'pagoda',name:'五重塔',x:35,z:25,width:5.7,flat:4.2,rotation:-Math.PI/2},
-    {id:'temple',name:'山顶朱红寺院',x:23,z:40,width:11.6,flat:7.1,rotation:Math.PI},
-    {id:'japanese-house',name:'林间町屋',x:-25,z:20,width:6,flat:6.4,rotation:Math.PI/2},
-  ],
-};
-
-const housePath = [[18, 14], [8, 15.5], [-3, 15.5]];
-const shrinePath = [[0, 6], [-4, -2], [-9, -8]];
+import {LAYOUT,WALK_PATHS,centralMeadow} from './world-layout.js';
+export {LAYOUT} from './world-layout.js';
 
 function segDist(px, pz, ax, az, bx, bz) {
   const dx = bx - ax, dz = bz - az;
@@ -42,11 +16,9 @@ function polyDist(px, pz, pts) {
   for (let i = 0; i < pts.length - 1; i++) d = Math.min(d, segDist(px, pz, ...pts[i], ...pts[i + 1]));
   return d;
 }
-export function roadDist(x, z) {
-  return Math.min(Math.abs(x - LAYOUT.roadX), polyDist(x, z, housePath));
-}
-const lakePath = [[-8, -10], [-6, -22], [-4.5, -34], [-3.2, -46]];
-export function trailDist(x, z) { return Math.min(polyDist(x, z, shrinePath),polyDist(x,z,[[18,14],[23,11],[23,40]]),polyDist(x,z,lakePath)); }
+export function roadDist(x,z){return villageLaneDistance(x,z);}
+export function trailDist(x,z){let d=Infinity;for(const p of WALK_PATHS)d=Math.min(d,polyDist(x,z,p.points));return d;}
+export function trailEdge(x,z){let d=Infinity;for(const p of WALK_PATHS)d=Math.min(d,polyDist(x,z,p.points)-p.width);return d;}
 // The island edge bulges north to make room for the lake (radius varies with direction only).
 const LAKE_DIR = Math.atan2(LAYOUT.lake.z, LAYOUT.lake.x);
 export function edgeRadius(x, z) { let d = Math.atan2(z, x) - LAKE_DIR; d = Math.atan2(Math.sin(d), Math.cos(d)); let summit=Math.atan2(z,x)-Math.atan2(40,23);summit=Math.atan2(Math.sin(summit),Math.cos(summit));return LAYOUT.playRadius+6*Math.exp(-((summit/.23)**2))+LAYOUT.lakeLobe*Math.exp(-((d/LAYOUT.lakeLobeWidth)**2)); }
@@ -115,6 +87,7 @@ function meadowMaterial(texture) {
 }
 
 function rawHeightAt(x, z) {
+  const rd=roadDist(x,z),td=trailDist(x,z);
   let h = 0.35 * Math.sin(x * 0.11 + 1.3) * Math.cos(z * 0.09 + 0.4)
     + 0.18 * Math.sin((x + z) * 0.21) + 0.08 * Math.cos(x * 0.37 - z * 0.29);
   // flatten around structures & road
@@ -122,15 +95,18 @@ function rawHeightAt(x, z) {
   let f = 1;
   f = Math.min(f, ss(7, 12, Math.hypot(x - L.house.x, z - L.house.z)));
   f = Math.min(f, ss(4, 8, Math.hypot(x - L.totoro.x, z - L.totoro.z)));
-  f = Math.min(f, ss(1.5, 5, Math.abs(x - L.roadX)));
+  f = Math.min(f, ss(1.5, 5, rd));
   h = h * (0.25 + 0.75 * f);
   h += 4.7 * ss(10,38,z) * Math.exp(-Math.pow((x-23)/8,4));
   const r = Math.hypot(x, z);
   // Local landforms leave the original central garden and eastern shrine route intact.
-  const west=1-ss(8,16,x),outer=ss(16,25,r),pathClear=ss(1.4,4,Math.min(roadDist(x,z),trailDist(x,z)));
+  const west=1-ss(8,16,x),outer=ss(16,25,r),pathClear=ss(1.4,4,Math.min(rd,td));
   const hill=(cx,cz,sx,sz)=>Math.exp(-(((x-cx)/sx)**2+((z-cz)/sz)**2));
-  const land=3.8*hill(-29,-25,15,12)+2.4*hill(-29,29,15,10)-1.4*hill(-7,-30,7,13)+4.1*hill(-42,-3,5.5,21);
+  const land=3.0*hill(-32,-28,15,12)+2.1*hill(-30,40,18,12)-1.2*hill(-7,-30,7,13)+3.1*hill(-48,-5,7,21);
   h+=land*west*outer*pathClear;
+  h+=1.7*hill(43,-31,12,13)*ss(1.6,4,td);
+  // A quiet, low central meadow; relief and woodland belong between clearings.
+  h*=1-.6*(1-ss(10,18,Math.hypot(x,z-5)));
   // A finite grassy plateau falls into cloud-filled ravines beyond the play edge.
   const edge=edgeRadius(x,z);
   h-=11*ss(edge,edge+L.terrainRadius-L.playRadius,r);
@@ -139,7 +115,7 @@ function rawHeightAt(x, z) {
   if(dl<L.lake.r+22){const shore=lakeShore(x,z),calm=ss(shore+18,shore+6,dl);h=THREE.MathUtils.lerp(h,h*.35+.32,calm);h=THREE.MathUtils.lerp(h,-2.4,ss(shore+1.1,shore-3.2,dl));}
   const dp = Math.hypot(x - L.pond.x, z - L.pond.z);
   if (dp < L.pond.r + 1.5) h -= 0.75 * ss(L.pond.r + 1.5, L.pond.r - 0.8, dp);
-  if (roadDist(x, z) < 1.6) h -= 0.05 * ss(1.6, 0.8, roadDist(x, z));
+  if (rd < 1.6) h -= 0.05 * ss(1.6, 0.8, rd);
   return h;
 }
 
@@ -174,10 +150,10 @@ export function buildTerrain() {
     const dl=lakeDist(x,z),shore=lakeShore(x,z);c.lerp(dirt,.5*ss(shore+1.8,shore+.3,dl));c.lerp(mud,ss(shore-.1,shore-1.4,dl));
     const dc = Math.hypot(x - LAYOUT.camphor.x, z - LAYOUT.camphor.z);
     c.lerp(grassC, ss(12, 4, dc) * 0.7);
-    const rd = roadDist(x, z) + ss(34, 40, r) * 5;
-    c.lerp(dirt, ss(1.5, 0.9, rd + Math.sin(x * 2 + z) * 0.15));
-    const td = trailDist(x, z);
-    c.lerp(dirt, 0.55 * ss(0.8, 0.35, td + Math.sin(x * 3.1 + z * 2.3) * 0.12));
+    const rd = roadDist(x, z);
+    c.lerp(dirt, .38*ss(2.05, 1.25, rd + Math.sin(x * 2 + z) * 0.15));
+    const td = trailEdge(x, z);
+    c.lerp(dirt, .88*ss(.3,-.2,td+Math.sin(x*3.1+z*2.3)*.10));
     const dp = Math.hypot(x - LAYOUT.pond.x, z - LAYOUT.pond.z);
     c.lerp(mud, ss(LAYOUT.pond.r + 0.8, LAYOUT.pond.r - 0.2, dp));
     col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
@@ -314,10 +290,10 @@ export function buildGrass(count, exclude) {
   let n = 0, tries = 0;
   while (n < count && tries < count * 4) {
     tries++;
-    const [x, z] = randomIslandPoint(R, 47);
+    const [x, z] = randomIslandPoint(R, LAYOUT.treeLimit);
     if (lakeDist(x, z) < lakeShore(x, z) + 0.3) continue;
     if (roadDist(x, z) < 1.2) continue;
-    if (trailDist(x, z) < 0.45 && R() < 0.85) continue;
+    if (trailEdge(x,z)<.1) continue;
     if (Math.hypot(x - LAYOUT.pond.x, z - LAYOUT.pond.z) < LAYOUT.pond.r + 0.2) continue;
     if (exclude && exclude(x, z)) continue;
     off[n * 3] = x; off[n * 3 + 1] = heightAt(x, z) - 0.02; off[n * 3 + 2] = z;
@@ -354,8 +330,8 @@ function buildClover(count,exclude){
   mat.onBeforeCompile=shader=>{shader.uniforms.uTerrainSnow=terrainSnow;shader.fragmentShader='uniform float uTerrainSnow;\n'+shader.fragmentShader;shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb=mix(diffuseColor.rgb,vec3(.97,.98,1.0),uTerrainSnow*.95);');};
   mat.customProgramCacheKey=()=> 'meadow-clover-snow-v6';
   const mesh=new THREE.InstancedMesh(geo,mat,count),R=rng(194),matrix=new THREE.Matrix4(),q=new THREE.Quaternion(),p=new THREE.Vector3(),scale=new THREE.Vector3();let n=0,tries=0;
-  while(n<count&&tries<count*8){tries++;const [x,z]=randomIslandPoint(R,45);if(lakeDist(x,z)<lakeShore(x,z)+.4)continue;
-    if(roadDist(x,z)<1.35||trailDist(x,z)<.5||Math.hypot(x-LAYOUT.pond.x,z-LAYOUT.pond.z)<LAYOUT.pond.r+.3||(exclude&&exclude(x,z)))continue;
+  while(n<count&&tries<count*8){tries++;const [x,z]=randomIslandPoint(R,LAYOUT.treeLimit-2);if(lakeDist(x,z)<lakeShore(x,z)+.4)continue;
+    if(roadDist(x,z)<1.35||trailEdge(x,z)<.15||Math.hypot(x-LAYOUT.pond.x,z-LAYOUT.pond.z)<LAYOUT.pond.r+.3||(exclude&&exclude(x,z)))continue;
     const patch=.5+.5*Math.sin(x*.73+z*.13)*Math.cos(z*.48);if(R()>patch*.85+.1)continue;
     const s=.7+R()*1.2;matrix.compose(p.set(x,heightAt(x,z)+.012,z),q.setFromAxisAngle(new THREE.Vector3(0,1,0),R()*Math.PI*2),scale.setScalar(s));mesh.setMatrixAt(n++,matrix);
   }
@@ -376,11 +352,11 @@ export function buildFlowers(count, exclude) {
   let n = 0;
   while (n < count) {
     // clustered patches
-    const [cx, cz] = randomIslandPoint(R, 45);
+    const [cx, cz] = randomIslandPoint(R, LAYOUT.treeLimit-2);
     for (let k = 0; k < 8 && n < count; k++) {
       const x = cx + (R() - 0.5) * 3, z = cz + (R() - 0.5) * 3;
       if (Math.hypot(x, z) > edgeRadius(x, z) - 3 || lakeDist(x, z) < lakeShore(x, z) + 0.6 || roadDist(x, z) < 1.4 || Math.hypot(x - LAYOUT.pond.x, z - LAYOUT.pond.z) < LAYOUT.pond.r + 0.4) continue;
-      if (exclude && exclude(x, z)) continue;
+      if (trailEdge(x,z)<.25 || (centralMeadow(x,z)&&R()<.8) || (exclude && exclude(x, z))) continue;
       const h = 0.25 + R() * 0.25, y = heightAt(x, z);
       m.compose(p.set(x, y, z), q.identity(), s.set(1, h, 1));
       stems.setMatrixAt(n, m);

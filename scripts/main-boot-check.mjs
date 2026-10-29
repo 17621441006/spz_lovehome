@@ -41,7 +41,7 @@ console.log({physicalKeyAutoForward:'PASS',shiftBeforeW:'PASS',releaseBothKeysTr
 // Drop vertically from tree-height into three water bodies in the actual loop.
 const {hazardousWater}=await import('../dist/src/water-recovery.js');
 const {heightAt,LAYOUT}=await import('../dist/src/terrain.js');
-for(const [name,x,z] of [['elder stream',-28,8.2],['lake',-4,-60],['pond',8,5]]){
+for(const [name,x,z] of [['elder stream',LAYOUT.elder.x,LAYOUT.elder.z+8.2],['lake',LAYOUT.lake.x,LAYOUT.lake.z],['pond',LAYOUT.pond.x,LAYOUT.pond.z]]){
  assert(hazardousWater(x,z));__game.P.pos.set(x,heightAt(x,z)+12,z);__game.P.vel.set(0,0,0);__game.P.vy=0;__game.P.grounded=false;
  for(let i=0;i<180;i++)draw();assert(!hazardousWater(__game.P.pos.x,__game.P.pos.z),name+' must recover onto dry land');assert(__game.P.grounded);assert(__game.waterRecovery.safe(__game.P.pos.x,__game.P.pos.z));
  const origin=__game.P.pos.clone();key('keydown','KeyW','w');for(let i=0;i<20;i++)draw();key('keyup','KeyW','w');assert(__game.P.pos.distanceTo(origin)>.1,name+' must allow movement after recovery');resetInput();

@@ -304,6 +304,19 @@ export class BigTotoro {
 }
 
 // ======================= Chu & Chibi =======================
+export function resolveSmallTotoroCollisions(pos,oldX,oldZ,radius,obstacles,getHeight=heightAt){
+ let blocked=false,hx=NaN,hz=NaN,ground;
+ for(const c of obstacles){
+  // Most obstacles leave the position unchanged. Reuse that height, but query
+  // again after a push or rollback so slope/low-obstacle filtering stays exact.
+  if(pos.x!==hx||pos.z!==hz){hx=pos.x;hz=pos.z;ground=getHeight(hx,hz);}
+  if(c.top<ground+.5)continue;
+  if(c.type==='circle'){const ox=pos.x-c.x,oz=pos.z-c.z,od=Math.hypot(ox,oz),rr=c.r+radius;if(od<rr){pos.x=c.x+(od>1e-5?ox/od:1)*rr;pos.z=c.z+(od>1e-5?oz/od:0)*rr;blocked=true;}}
+  else if(pos.x>c.minX-radius&&pos.x<c.maxX+radius&&pos.z>c.minZ-radius&&pos.z<c.maxZ+radius){pos.x=oldX;pos.z=oldZ;blocked=true;}
+ }
+ return blocked;
+}
+
 export class SmallTotoro {
   constructor(scene, kind, start) {
     const chu = kind === 'chu';
@@ -341,11 +354,7 @@ export class SmallTotoro {
       if(neighbor){const nx=this.pos.x-neighbor.pos.x,nz=this.pos.z-neighbor.pos.z,nd=Math.hypot(nx,nz),safe=this.radius+neighbor.radius+.55;if(nd<safe&&nd>.001){const force=(safe-nd)/safe*1.8;dx+=nx/nd*force;dz+=nz/nd*force;}}
       const len=Math.hypot(dx,dz)||1;dx/=len;dz/=len;const oldX=this.pos.x,oldZ=this.pos.z;const step=Math.min(distance,speed*dt);this.pos.x+=dx*step;this.pos.z+=dz*step;
       // Resolve static obstacle penetration. Retarget after a block instead of vibrating against it.
-      let blocked=false;
-      for(const c of colliders){if(c.top<heightAt(this.pos.x,this.pos.z)+.5)continue;
-        if(c.type==='circle'){const ox=this.pos.x-c.x,oz=this.pos.z-c.z,od=Math.hypot(ox,oz),rr=c.r+this.radius;if(od<rr){this.pos.x=c.x+(od>1e-5?ox/od:1)*rr;this.pos.z=c.z+(od>1e-5?oz/od:0)*rr;blocked=true;}}
-        else if(this.pos.x>c.minX-this.radius&&this.pos.x<c.maxX+this.radius&&this.pos.z>c.minZ-this.radius&&this.pos.z<c.maxZ+this.radius){this.pos.x=oldX;this.pos.z=oldZ;blocked=true;}
-      }
+      let blocked=resolveSmallTotoroCollisions(this.pos,oldX,oldZ,this.radius,colliders);
       const pond=LAYOUT.pond,px=this.pos.x-pond.x,pz=this.pos.z-pond.z,pd=Math.hypot(px,pz);if(pd<pond.r+1){this.pos.x=pond.x+px/(pd||1)*(pond.r+1);this.pos.z=pond.z+pz/(pd||1)*(pond.r+1);blocked=true;}
       if(neighbor){const nx=this.pos.x-neighbor.pos.x,nz=this.pos.z-neighbor.pos.z,nd=Math.hypot(nx,nz),rr=this.radius+neighbor.radius+.2;if(nd<rr){this.pos.x=neighbor.pos.x+(nd>.001?nx/nd:1)*rr;this.pos.z=neighbor.pos.z+(nd>.001?nz/nd:0)*rr;}}
       if(blocked&&this.retarget<=0){this.target.copy(this.home);this.retarget=1.4;this.pause=.6;}

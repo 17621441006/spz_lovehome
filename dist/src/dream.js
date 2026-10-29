@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import {heightAt,LAYOUT,roadDist,trailDist,edgeRadius,catbusRouteDist} from './terrain.js';
 import {colliders,createTorii,nearStructure} from './world.js';
 import {rng} from './toon.js';
+import {focalClearing} from './world-layout.js';
 import {rootFootprint,rootPlacement,terrainSlope} from './tree-grounding.js';
 export let magicTreePrototype=null;
 const time={value:0},night={value:0},rain={value:0};
@@ -42,22 +43,22 @@ export async function loadDreamWorld(scene,low,{progressive=false}={}){
 
  const trees={};for(const name of ['forest-tree','broadleaf-tree','fantasy-tree']){assets[name].updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(assets[name]);const high=normalizeModel(assets[name],8.4,bounds),far=normalizeModel(assets[name+'-lod'],8.4,bounds);wind(high);wind(far);coatTree(high);coatTree(far);trees[name]={high,far,roots:rootFootprint(high,far)};}
  magicTreePrototype=trees['forest-tree'].high;
- function tree(type,x,z,size=1,rotation=0,distant=false){if(Math.hypot(x-LAYOUT.elder.x,z-LAYOUT.elder.z)<LAYOUT.elder.flat+2)return null;if(catbusRouteDist(x,z)<3.8)return null;const proto=trees[type];let support=rootPlacement(proto.roots,x,z,size,rotation);
-  if(support.spread>.9){const ox=x,oz=z;let found=false;for(let r=1;r<=10&&!found;r++)for(let j=0;j<20;j++){const a=j/20*Math.PI*2,nx=ox+Math.cos(a)*r,nz=oz+Math.sin(a)*r;if(Math.hypot(nx,nz)+4.2*size>LAYOUT.treeLimit||roadDist(nx,nz)<3||trailDist(nx,nz)<2.5||nearStructure(nx,nz,2))continue;if(colliders.some(c=>c.top>900&&c.type==='circle'&&Math.hypot(nx-c.x,nz-c.z)<c.r+1.6))continue;const candidate=rootPlacement(proto.roots,nx,nz,size,rotation);if(candidate.inside&&candidate.spread<.8){x=nx;z=nz;support=candidate;found=true;break;}}if(!found)return null;}
+ function tree(type,x,z,size=1,rotation=0,distant=false){if(focalClearing(x,z,1))return null;if(Math.hypot(x-LAYOUT.elder.x,z-LAYOUT.elder.z)<LAYOUT.elder.flat+2)return null;if(catbusRouteDist(x,z)<3.8)return null;const proto=trees[type];let support=rootPlacement(proto.roots,x,z,size,rotation);
+  if(support.spread>.9){const ox=x,oz=z;let found=false;for(let r=1;r<=10&&!found;r++)for(let j=0;j<20;j++){const a=j/20*Math.PI*2,nx=ox+Math.cos(a)*r,nz=oz+Math.sin(a)*r;if(Math.hypot(nx,nz)+4.2*size>LAYOUT.treeLimit||roadDist(nx,nz)<3||trailDist(nx,nz)<2.5||nearStructure(nx,nz,2)||focalClearing(nx,nz,1))continue;if(colliders.some(c=>c.top>900&&c.type==='circle'&&Math.hypot(nx-c.x,nz-c.z)<c.r+1.6))continue;const candidate=rootPlacement(proto.roots,nx,nz,size,rotation);if(candidate.inside&&candidate.spread<.8){x=nx;z=nz;support=candidate;found=true;break;}}if(!found)return null;}
   if(!support.inside||catbusRouteDist(x,z)<3.8)return null;let t;if(distant)t=proto.far.clone(true);else{t=new THREE.LOD();t.addLevel(proto.high.clone(true),0);t.addLevel(proto.far.clone(true),low?17:28);}
   t.name=distant?'远景模型树':'森林模型树';t.userData.treeAsset=type;t.userData.rootSupport=support.contact;t.userData.rootSpread=support.spread;t.position.set(x,support.y,z);t.rotation.y=rotation;t.scale.multiplyScalar(size);if(distant)t.traverse(o=>{if(o.isMesh)o.castShadow=false;});scene.add(t);colliders.push({type:'circle',x,z,r:.52*size,top:999});return t;}
- const near=[[-8,4,1],[-15,10,1.15],[-19,27,.9],[5,25,1.12],[14,21,1.1],[29,8,1.18],[25,-6,1.2],[7,-19,1.08],[-1,-24,1.2],[-17,-29,1.15],[-29,4,1.1],[-30,-7,1.2],[-31,-19,1.1],[-19,-9,.85],[-18,-20,.85]];
+ const near=[[-18,-25,.9],[-24,-19,.85],[-39,-18,.9],[-42,9,.9],[-35,25,.8],[-17,37,.8],[-12,45,.9],[11,41,.8],[34,25,.85],[40,18,.85],[43,-6,.95],[35,-39,.8],[17,-38,.85],[10,-27,.95]];
  near.forEach(([x,z,size],i)=>tree(i%3===0?'broadleaf-tree':'forest-tree',x,z,size,i*2.3));
  // The original shrine keeps its location and gets a full-canopy model tree.
- const great=tree('broadleaf-tree',LAYOUT.camphor.x,LAYOUT.camphor.z,1.65,.3);great.name='大樟树';colliders[colliders.length-1].r=1.7;
- for(const [x,z,size] of [[18,12,.8],[28,17,.9],[18,23,.95],[28,30,.85],[17,35,1.05],[30,32,.85]])tree('fantasy-tree',x,z,size,.4+x);
+ const great=tree('broadleaf-tree',LAYOUT.camphor.x,LAYOUT.camphor.z,1.65,.3);if(great){great.name='大樟树';colliders[colliders.length-1].r=1.7;}
+ for(const [x,z,size] of [[17,21,.65],[30,24,.7],[16,34,.8],[33,36,.65]])tree('fantasy-tree',x,z,size,.4+x);
  // v20: a ring of trees around the new lake, leaving the pier side open towards the island
  {const lk=LAYOUT.lake,R=rng(404);let n=0;for(let i=0;i<90&&n<(low?12:22);i++){const a=R()*Math.PI*2,off=Math.atan2(Math.sin(a-Math.PI/2),Math.cos(a-Math.PI/2));if(Math.abs(off)<.8)continue;const d=lk.r+4.5+R()*10,x=lk.x+Math.cos(a)*d,z=lk.z+Math.sin(a)*d;if(Math.hypot(x,z)>edgeRadius(x,z)-5.5||nearStructure(x,z,2)||trailDist(x,z)<3)continue;const t=tree(n%3===0?'broadleaf-tree':n%5===0?'fantasy-tree':'forest-tree',x,z,.8+R()*.45,R()*6);if(t){t.name='星湖畔的树';n++;}}}
  // Broken woodland patches inside the world, with open meadow/valley sight lines.
  const random=rng(732),planted=scene.children.filter(o=>o.userData.treeAsset).map(o=>o.position.clone());let count=0;
- for(let attempt=0;attempt<900&&count<(low?36:52);attempt++){
-  const a=random()*Math.PI*2,r=29+random()*15,x=Math.cos(a)*r,z=Math.sin(a)*r,size=.68+random()*.35;
-  if(r+4.2*size>LAYOUT.treeLimit||roadDist(x,z)<3||trailDist(x,z)<2.5||nearStructure(x,z,3)||terrainSlope(x,z)>.36)continue;
+ for(let attempt=0;attempt<900&&count<(low?26:38);attempt++){
+  const a=random()*Math.PI*2,r=29+random()*28,x=Math.cos(a)*r,z=Math.sin(a)*r,size=.68+random()*.35;
+  if(r+4.2*size>LAYOUT.treeLimit||roadDist(x,z)<3||trailDist(x,z)<2.5||nearStructure(x,z,3)||focalClearing(x,z,2)||terrainSlope(x,z)>.36)continue;
   if((x< -20&&z>21)||(Math.abs(x+7)<6&&z< -22))continue;
   if(planted.some(p=>Math.hypot(x-p.x,z-p.z)<4.3))continue;
   if(colliders.some(c=>c.top>900&&(c.type==='circle'?Math.hypot(x-c.x,z-c.z)<c.r+2:x>c.minX-2&&x<c.maxX+2&&z>c.minZ-2&&z<c.maxZ+2)))continue;
@@ -66,8 +67,8 @@ export async function loadDreamWorld(scene,low,{progressive=false}={}){
   const t=tree(type,x,z,size,angle,true);if(t){planted.push(t.position.clone());count++;}
  }
  // Tall layered groves; all trees still use root support and boundary checks.
- for(const [cx,cz]of [[-24,-15],[4,-29]])for(let i=0;i<(low?5:9);i++){
-  const a=i*2.399,r=3+Math.sqrt(i)*2.1,x=cx+Math.sin(a)*r,z=cz+Math.cos(a)*r,size=1.22+(i%3)*.16;
+ for(const [cx,cz]of [[-31,-25],[12,-39]])for(let i=0;i<(low?4:6);i++){
+  const a=i*2.399,r=3+Math.sqrt(i)*2.1,x=cx+Math.sin(a)*r,z=cz+Math.cos(a)*r,size=1.1+(i%3)*.12;
   if(Math.hypot(x,z)+4.2*size>LAYOUT.treeLimit||nearStructure(x,z,3)||trailDist(x,z)<3||roadDist(x,z)<3)continue;
   if(colliders.some(c=>c.type==='circle'&&Math.hypot(x-c.x,z-c.z)<c.r+1.4))continue;
   const t=tree(i%3?'forest-tree':'broadleaf-tree',x,z,size,a);if(t){t.name='魔法森林 · 高冠层';}

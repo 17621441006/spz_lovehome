@@ -1,8 +1,9 @@
 import {OUTFITS} from './outfits.js';
 import * as THREE from 'three';
 
-// One renderer, two views: the paper wardrobe shows the actual active avatar.
-// Restore the world transform immediately after drawing the portrait viewport.
+// The wardrobe draws the active avatar with a separate portrait renderer.
+// Return its exact Euler representation and skinning state to the game after
+// drawing: gameplay updates only rotation.y, so X/Z must never be rewritten.
 export class EquipmentPanel {
  constructor({renderer,getActor,getCharacter,getAcorns=()=>({count:0,total:14}),onToggle}) {
   this.renderer=renderer;this.getActor=getActor;this.getCharacter=getCharacter;this.onToggle=onToggle;this.getAcorns=getAcorns;this.tab="all";this.selected="fan";
@@ -79,7 +80,7 @@ export class EquipmentPanel {
   if(!this.open)return;
   if(!this.previewRenderer){try{this.previewRenderer=new THREE.WebGLRenderer({antialias:true,alpha:false});this.previewRenderer.setPixelRatio(Math.min(devicePixelRatio,1.5));this.previewRenderer.outputColorSpace=THREE.SRGBColorSpace;this.stage.appendChild(this.previewRenderer.domElement);}catch{this.stage.textContent='人物预览暂不可用，请关闭后重试';return;}}
   const renderer=this.previewRenderer,actor=this.getActor(),root=actor.root,r=this.stage.getBoundingClientRect();if(r.width<1||r.height<1)return;
-  const parent=root.parent,p=root.position.clone(),q=root.quaternion.clone(),s=root.scale.clone(),mq=actor.model?.quaternion.clone();
+  const parent=root.parent,p=root.position.clone(),rotation=root.rotation.clone(),s=root.scale.clone(),modelRotation=actor.model?.rotation.clone();
   const viewport=renderer.getViewport(new THREE.Vector4()),scissor=renderer.getScissor(new THREE.Vector4()),scissorTest=renderer.getScissorTest(),auto=renderer.autoClear;
   try{
    this.scene.add(root);root.position.set(0,0,0);root.rotation.set(0,this.angle,0);if(actor.model)actor.model.rotation.y=0;root.updateMatrixWorld(true);
@@ -89,7 +90,9 @@ export class EquipmentPanel {
    this.camera.updateProjectionMatrix();
    renderer.setSize(r.width,r.height,false);renderer.setViewport(0,0,r.width,r.height);renderer.setScissorTest(false);renderer.autoClear=true;renderer.render(this.scene,this.camera);
   }finally{
-   parent.add(root);root.position.copy(p);root.quaternion.copy(q);root.scale.copy(s);if(mq)actor.model.quaternion.copy(mq);root.updateMatrixWorld(true);
+   if(parent)parent.add(root);else root.removeFromParent();
+   root.position.copy(p);root.rotation.copy(rotation);root.scale.copy(s);if(modelRotation)actor.model.rotation.copy(modelRotation);root.updateMatrixWorld(true);
+   for(const skeleton of actor.skeletons||[])skeleton.update();
    renderer.setViewport(viewport);renderer.setScissor(scissor);renderer.setScissorTest(scissorTest);renderer.autoClear=auto;
   }
  }

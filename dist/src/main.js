@@ -6,6 +6,7 @@ import {setupDisplayControls} from './display-controls.js';
 import {IslandOcean} from './ocean.js';
 import {TreeOcclusion} from './tree-occlusion.js';
 import {BuildingOcclusion} from './building-occlusion.js';
+import {regionDescription} from './world-layout.js';
 import {addElderTree,updateElderGlade,inElderRiver,onElderBridge} from './elder-tree.js';
 import {moveWithCollisions} from './collision.js';
 import {planStartup,finishStartup,detailStream} from './asset-stream.js';
@@ -19,7 +20,7 @@ import {SnowTracks} from './snow-tracks.js';
 // 脏脏包的龙猫森林 — main game loop
 import * as THREE from 'three';
 import { furEnv } from './fur.js';
-import { LAYOUT, heightAt, buildTerrain, buildGrass, buildFlowers, grassUniforms, setTerrainSnow, edgeRadius, inLakeWater, lakeDist } from './terrain.js';
+import { LAYOUT, heightAt, buildTerrain, buildGrass, buildFlowers, grassUniforms, setTerrainSnow, edgeRadius, inLakeWater } from './terrain.js';
 import {
   buildWorld, colliders, groundAt, skyUniforms, cloudMat, windowMats, floatUniforms, Rain, Acorns, sproutTree,
   nearStructure, lampLight, lampBulbMat, waterMat,
@@ -147,7 +148,7 @@ const keys = {};const sprint=new SprintControl();
 let started = false;
 addEventListener('keydown', (e) => {
   if (!started || busy() || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
-  const k = movementKey(e);
+  const k = e.code==='KeyB'?'b':movementKey(e);
   if(!$('busDialog').hidden){if(k==='escape')$('busDialog').hidden=true;return;}
   if(catbus.riding&&k!=='e'&&k!=='escape')return;
   if(k==='b'&&!e.repeat){e.preventDefault();if(!characterMenuOpen&&!switching&&P.grounded)equipment.setOpen(!equipment.open);return;}
@@ -179,6 +180,7 @@ canvas.addEventListener('pointerdown', (e) => {
   dragId = e.pointerId; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId);
 });
 canvas.addEventListener('pointermove', (e) => {
+  if(!started||characterMenuOpen||equipment.open||busy())return;
   if(document.pointerLockElement===canvas)return;
   if (e.pointerId !== dragId) return;
   cam.yaw -= (e.clientX - lastX) * 0.006;
@@ -255,7 +257,7 @@ $('bKick2').onclick=()=>performAction(1);
 $('bSnow').onclick=toggleSnow;syncWeatherUI();
 $('bRain').onclick = toggleRain; $('bNight').onclick = toggleNight; $('bHide').onclick = toggleUI;
 $('bSound').onclick = () => { sound.setEnabled(!sound.enabled); $('bSound').classList.toggle('on', sound.enabled); $('bSound').textContent = sound.enabled ? '🔊 全部声音已开启' : '🔇 全部声音已关闭'; };
-const equipment=new EquipmentPanel({renderer,getActor:()=>cat,getCharacter:()=>({id:characterId,name:CHARACTER_DEFS[characterId].name}),getAcorns:()=>({count:Number($('acornCount').textContent),total:acorns.total}),onToggle:()=>{sprint.reset();P.vel.set(0,0,0);P.jumpBuf=0;P.idle=0;touch.x=touch.y=0;for(const k in keys)keys[k]=false;$('settingsPanel').hidden=true;}});
+const equipment=new EquipmentPanel({renderer,getActor:()=>cat,getCharacter:()=>({id:characterId,name:CHARACTER_DEFS[characterId].name}),getAcorns:()=>({count:Number($('acornCount').textContent),total:acorns.total}),onToggle:()=>{clearMovement();P.idle=0;$('settingsPanel').hidden=true;}});
 $('bEquipment').onclick=()=>{if(totoro.occupied)useTotoroBed();if(catbus.riding){toast('先让猫车停稳下车，再打开行囊吧');return;}if(started&&!characterMenuOpen&&!switching){if(!P.grounded){toast('先落到地面，再打开行囊吧');return;}equipment.setOpen(!equipment.open);}};
 function syncCharacterUI(){
  equipment.apply();equipment.sync();
@@ -746,7 +748,7 @@ function frame() {
   if(!sound.customAudio){const label='当前：原创 · '+sound.currentTrack+'（四首轮播）';if($('musicName').textContent!==label)$('musicName').textContent=label;}
 
   // UI
-  const region=lakeDist(P.pos.x,P.pos.z)<LAYOUT.lake.r+14?'星湖 · 阿渔伯的钓场，湖底住着奇怪的鱼':Math.hypot(P.pos.x,P.pos.z)>46?'云海崖畔 · 森林到此，远处只有风与云':P.pos.x< -34?'苔岩坡 · 沿着山脊慢慢走':P.pos.x< -20&&P.pos.z>24?'风起草甸 · 留一片开阔的绿':Math.abs(P.pos.x+7)<7&&P.pos.z< -23?'林间谷地 · 风从低处吹来':P.pos.x>18&&P.pos.z>9?'东南 · 稻荷山道与山顶神社':Math.hypot(P.pos.x+6,P.pos.z-21)<12?'树屋小院 · 煤球们的秘密基地':Math.hypot(P.pos.x-8,P.pos.z-5)<8?'水光池塘 · 听一片叶子落水':Math.hypot(P.pos.x-13.2,P.pos.z+8.2)<9?'龙猫车站 · 等一班夏天的车':'司涌脏·千寻 · 去发现一颗小小橡果';
+  const region=regionDescription(P.pos.x,P.pos.z);
   $('place').textContent='✦ '+region;
   $('bKick1').disabled=$('bKick2').disabled=!!cat.actionQueueFull||!P.grounded||switching||characterMenuOpen;
   if (toastTimer > 0) { toastTimer -= dt; if (toastTimer <= 0) $('toast').classList.remove('show'); }

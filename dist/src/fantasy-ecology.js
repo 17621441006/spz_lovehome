@@ -113,7 +113,7 @@ export async function addFantasyEcology(scene) {
   // 1. 森铃苔团 · 莫莫 (Creature 01: Moss-Bell Spirit "Momo") — 全图仅1只，置于远端静谧林间草地
   // ---------------------------------------------------------------------------
   const momoSpots = [
-    { x: -16.5, z: 11.2, scale: 1.05, yaw: 0.65, label: '森铃苔团 · 莫莫' },
+    { x: -13.5, z: -24, scale: 1.05, yaw: 0.65, label: '森铃苔团 · 莫莫' },
   ];
   for (const [idx, cfg] of momoSpots.entries()) {
     clearLane(cfg);
@@ -212,7 +212,7 @@ export async function addFantasyEcology(scene) {
   // 3. 听雨笠蛙灵 · 滴答 (Creature 03: Raindrop Lotus-Cap Frog "Dida")
   // ---------------------------------------------------------------------------
   const didaSpots = [
-    { x: 5.1, z: 3.2, scale: 0.96, yaw: -0.85, label: '听雨笠蛙灵 · 滴答' },
+    { x: 30.3, z: 3.2, scale: 0.96, yaw: -0.85, label: '听雨笠蛙灵 · 滴答' },
     { x: -6.8, z: -47.2, scale: 0.96, yaw: 0.55, label: '星湖笠蛙灵 · 滴答' },
   ];
   for (const [idx, cfg] of didaSpots.entries()) {
@@ -250,7 +250,7 @@ export async function addFantasyEcology(scene) {
   // ---------------------------------------------------------------------------
   const acornTreeSpots = [
     { x: -12.2, z: -13.2, scale: 1.05, yaw: 0.45, hasLight: true },
-    { x: 19.5, z: 7.2, scale: 1.0, yaw: -0.65, hasLight: false },
+    { x: 39, z: 13, scale: 1.0, yaw: -0.65, hasLight: false },
     { x: -8.5, z: -31.0, scale: 1.02, yaw: 1.15, hasLight: false },
   ];
   for (const [idx, cfg] of acornTreeSpots.entries()) {
@@ -285,8 +285,8 @@ export async function addFantasyEcology(scene) {
   // ---------------------------------------------------------------------------
   const shroomSpots = [
     { x: -19.8, z: 0.0, scale: 1.0, yaw: 0.0, isBridge: true },
-    { x: -4.8, z: -9.8, scale: 1.0, yaw: 0.35, isBridge: false },
-    { x: 16.5, z: 24.5, scale: 0.96, yaw: -0.8, isBridge: false },
+    { x: -19, z: -25, scale: 1.0, yaw: 0.35, isBridge: false },
+    { x: 12, z: 39, scale: 0.96, yaw: -0.8, isBridge: false },
   ];
   const origShroomXZ = [
     [-0.82, 0.08],
@@ -372,8 +372,8 @@ export async function addFantasyEcology(scene) {
   // 6. 泡泡水琴草 (Plant 03: Melody Bubble-Harp Reed) — 池塘仅保留1株且体积更大，另1株远在北方星湖
   // ---------------------------------------------------------------------------
   const reedSpots = [
-    { x: 9.3, z: 6.9, y: -0.19, scale: 1.08, yaw: -0.75 },
-    { x: -1.85, z: -48.5, y: LAYOUT.lake.level + 0.02, scale: 1.12, yaw: 0.35 },
+    { x: LAYOUT.pond.x+1.3, z: LAYOUT.pond.z+1.9, y: -0.19, scale: 1.08, yaw: -0.75 },
+    { x: -1.85, z: -49.8, y: LAYOUT.lake.level + 0.02, scale: 1.12, yaw: 0.35 },
   ];
   for (const [idx, cfg] of reedSpots.entries()) {
     clearLane(cfg);

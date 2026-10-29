@@ -4,6 +4,7 @@ import {solveLimb,setWorldQuaternion} from './limb-ik.js';
 import {XIAOYONG_RUN} from './xiaoyong-run.js';
 import {dressXiaosi} from './xiaosi-style.js';
 import {updateXiaosiWalk} from './xiaosi-walk.js';
+import {prepareSeatedHands,updateSeatedHands} from './seated-hands.js';
 
 export async function loadHumanCharacter(id){return new HumanCharacter(await loadGLB(`assets/characters/${id==='xiaosi'?'xiaosi-c':id}.glb`),id);}
 
@@ -18,6 +19,7 @@ export class HumanCharacter{
   this.model.updateMatrixWorld(true);this.footRest={};this.toeRest={};this.footRestPitch={};this.sitAnkleLimit={};this.hairRest=[];for(const b of Object.values(this.bones))if(b.name.startsWith('Hair'))this.hairRest.push([b,b.quaternion.clone()]);for(const side of ['Left','Right']){const foot=this.bones[side+'Foot'],toe=this.bones[side+'Toe'];this.footRest[side]=foot.getWorldQuaternion(new THREE.Quaternion());this.toeRest[side]=toe?.quaternion.clone();
    if(toe){const ankle=foot.getWorldPosition(new THREE.Vector3()),inverse=this.model.getWorldQuaternion(new THREE.Quaternion()).invert(),shin=this.bones[side+'LowerLeg'].getWorldPosition(new THREE.Vector3()).sub(ankle).applyQuaternion(inverse),forefoot=toe.getWorldPosition(new THREE.Vector3()).sub(ankle).applyQuaternion(inverse);this.footRestPitch[side]=Math.atan2(forefoot.y,forefoot.z);this.sitAnkleLimit[side]=Math.atan2(shin.y,shin.z)-this.footRestPitch[side]+THREE.MathUtils.degToRad(10);}
   }
+  prepareSeatedHands(this);
   this.mixer=new THREE.AnimationMixer(this.model);this.actions={};this.pose=[];const clips=gltf.animations.map(c=>c.clone());
   // Xiaoyong's original file only contains a walking cycle. Retarget the existing
   // run into his bind axes/proportions instead of playing a fast walk indefinitely.
@@ -65,12 +67,9 @@ export class HumanCharacter{
     // still grounds the actual shoe mesh, including during sit/stand blending.
     if(this.id==='xiaosi'&&this.sitAnkleLimit[side]!==undefined){const shin=this.bones[side+'LowerLeg'].getWorldPosition(new THREE.Vector3()).sub(foot.getWorldPosition(new THREE.Vector3())).applyQuaternion(modelRotation.clone().invert()),pitch=THREE.MathUtils.clamp(Math.atan2(shin.y,shin.z)-this.footRestPitch[side]-this.sitAnkleLimit[side],0,Math.PI/3);rest.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-pitch));}
     rest.multiply(this.footRest[side]);setWorldQuaternion(foot,foot.getWorldQuaternion(new THREE.Quaternion()).slerp(rest,this.sitBlend));const toe=this.bones[side+'Toe'];if(toe&&this.toeRest[side])toe.quaternion.slerp(this.toeRest[side],this.sitBlend);
-    // Keep the authored shoulder and wrist rotations. Only turn the forearm
-    // slightly toward the knee; full arm IK introduced unwanted sleeve twist.
-    const knee=this.bones[side+'LowerLeg'].getWorldPosition(new THREE.Vector3()),hand=this.bones[side+'Hand'],fore=this.bones[side+'ForeArm'],elbow=fore.getWorldPosition(new THREE.Vector3()),from=hand.getWorldPosition(new THREE.Vector3()).sub(elbow).normalize(),goal=knee.clone().add(new THREE.Vector3(0,.05,-.025)).sub(elbow).normalize();
-    const q=fore.getWorldQuaternion(new THREE.Quaternion()),aim=new THREE.Quaternion().setFromUnitVectors(from,goal).multiply(q);setWorldQuaternion(fore,q.slerp(aim,this.sitBlend));}
-
+   }
   }
+  updateSeatedHands(this,this.sitBlend);
   this.root.updateMatrixWorld(true);for(const sk of this.skeletons)sk.update();
   if(s.grounded){let bottom=Infinity;const v=new THREE.Vector3();for(const {mesh,ids}of this.contacts)for(const i of ids){mesh.getVertexPosition(i,v).applyMatrix4(mesh.matrixWorld);bottom=Math.min(bottom,v.y-this.root.position.y);}if(Number.isFinite(bottom)){const correction=.008-bottom;this.model.position.y+=correction>0?correction:correction*(1-Math.exp(-25*dt));}}
   else this.model.position.y+=(0-this.model.position.y)*(1-Math.exp(-12*dt));

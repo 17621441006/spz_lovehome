@@ -33,9 +33,9 @@ export async function addElderTree(scene){
 async function addGladeModels(glade){
  // 将紫色矿石(glade-rock)与月晶(crystal)移至地图远端外围，蘑菇古树置于环河外侧，保持古树岛开阔清爽
  const placements={
-  'glade-tree':[[-9.8,8.8,5.2,.4],[-10.5,-7.5,4.5,1.7],[.5,-12.5,5,-.6]],
-  'glade-rock':[[-6,-34,1.3,.6],[12,-38,1.6,2.1],[60,26,.9,1.2]],
-  'crystal':[[-5,34,1,.3],[17,-39,.9,1.2]]
+  'glade-tree':[[-12.5,8.8,4.2,.4],[-12.5,-9.5,4.1,1.7]],
+  'glade-rock':[[46,-43,1.1,.6],[53,-45,1.3,2.1]],
+  'crystal':[]
  };
  function prototype(source,id,h){const m=source.clone(true);m.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(m),c=box.getCenter(new THREE.Vector3()),k=h/box.getSize(new THREE.Vector3()).y;m.scale.setScalar(k);m.position.set(-c.x*k,-box.min.y*k,-c.z*k);m.traverse(o=>{if(!o.isMesh)return;o.material=o.material.clone();o.material.roughness=id==='glade-tree'?.95:.8;o.material.metalness=0;if(o.material.map)o.material.map.anisotropy=8;o.castShadow=o.receiveShadow=true;if(id!=='glade-tree'){o.material.emissive=new THREE.Color(id==='glade-rock'?'#75508a':'#678eb6');o.material.emissiveMap=o.material.map;gladeGlow.push(o.material);}});if(id==='glade-tree')coatTree(m);return m;}
  await Promise.all(Object.entries(placements).map(async([id,positions])=>{

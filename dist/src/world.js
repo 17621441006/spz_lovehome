@@ -1,3 +1,5 @@
+import {centralMeadow,focalClearing} from './world-layout.js';
+import {addWayfinding} from './wayfinding.js';
 // Static world: sky, clouds, trees, camphor tree & shrine, house, bus stop, pond, platforms, particles
 import * as THREE from 'three';
 import { toon, rng, wobble, ellipsoid } from './toon.js';
@@ -386,7 +388,7 @@ function busStop() {
   g.add(sign);
   colliders.push({ type: 'circle', x, z, r: 0.12, top: 999 });
   // lamp post
-  const lx = LAYOUT.roadX - 1.3, lz = -10.5, ly = heightAt(lx, lz);
+  const lx = LAYOUT.bus.x - 1.3, lz = LAYOUT.bus.z - 3.5, ly = heightAt(lx, lz);
   const lp = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 4.6, 8), toon('#5d4a3a')); lp.position.set(lx, ly + 2.3, lz); g.add(lp);
   const arm = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 0.08), toon('#5d4a3a')); arm.position.set(lx - 0.4, ly + 4.4, lz); g.add(arm);
   const shade = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.25, 12, 1, true), toon('#3b4a3e', { side: THREE.DoubleSide })); shade.position.set(lx - 0.8, ly + 4.3, lz); g.add(shade);
@@ -397,7 +399,7 @@ function busStop() {
   g.add(lampLight);
   colliders.push({ type: 'circle', x: lx, z: lz, r: 0.18, top: 999 });
   // bench
-  const bx = x - 1.0, bz = z + 2.2, by = heightAt(bx, bz);
+  const bx = x - 2, bz = z + 7, by = heightAt(bx, bz);
   const bench = new THREE.Group();
   const seat = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.1, 0.5), toon('#9a7650')); seat.position.y = 0.5; bench.add(seat);
   const back = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.45, 0.07), toon('#9a7650')); back.position.set(0, 0.85, 0.22); bench.add(back);
@@ -457,7 +459,7 @@ function pond() {
 function platforms() {
   const g = new THREE.Group();
   const stumpSide = toon('#7a5a3e'), stumpTop = toon('#d6b27c');
-  const stumps = [[2.2, -2.8, 0.45, 0.45], [3.7, -4.3, 0.5, 0.9], [4.8, -6.1, 0.55, 1.4], [-7, 3, 0.5, 0.5], [-14, -4, 0.6, 0.7], [20.5, -2, 0.45, 0.5]];
+  const stumps = [[-6,31,.45,.45],[-7.5,33,.5,.9],[-8.6,35,.55,1.4],[-9,38,.5,.5],[-8,41,.6,.7],[-5,44,.45,.5]];
   for (const [x, z, r, h] of stumps) {
     const y = heightAt(x, z);
     const s = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.15, h + 0.3, 12), [stumpSide, stumpTop, stumpSide]);
@@ -466,7 +468,7 @@ function platforms() {
     colliders.push({ type: 'circle', x, z, r, top: y + h });
   }
   // big mossy rock
-  const rx = 6.8, rz = -8.8, ry = heightAt(rx, rz);
+  const rx = -21, rz = -24, ry = heightAt(rx, rz);
   const rg = new THREE.IcosahedronGeometry(1.3, 2); wobble(rg, 0.12, 3, 2);
   rg.scale(1, 1.15, 1);
   const rock = new THREE.Mesh(rg, toon('#8e8d82')); rock.position.set(rx, ry + 0.45, rz); rock.castShadow = true; rock.receiveShadow = true;
@@ -474,7 +476,7 @@ function platforms() {
   const moss = new THREE.Mesh(blob(1.0, 0, 0, 0, 7, 0.35), toon('#5f8f36')); moss.position.set(rx, ry + 1.75, rz); g.add(moss);
   colliders.push({ type: 'circle', x: rx, z: rz, r: 1.15, top: ry + 1.95 });
   // fallen log
-  const lx = -3, lz = -9, ly = heightAt(lx, lz);
+  const lx = -22, lz = -17, ly = heightAt(lx, lz);
   const log = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.45, 4, 12), [stumpSide, stumpTop, stumpTop]);
   log.rotation.z = Math.PI / 2; log.rotation.y = 0.5; log.position.set(lx, ly + 0.35, lz); log.castShadow = true;
   g.add(log);
@@ -482,7 +484,7 @@ function platforms() {
   for (let t = -1.6; t <= 1.6; t += 0.4) colliders.push({ type: 'circle', x: lx + dir.x * t, z: lz + dir.z * t, r: 0.4, top: ly + 0.78 });
   // stepping stones by the house
   for (let i = 0; i < 5; i++) {
-    const sx = 4 - i * 1.6, sz = 15.5 + Math.sin(i) * 0.3;
+    const sx = LAYOUT.house.x + Math.sin(i)*.15, sz = LAYOUT.house.z-9+i*.6;
     const st = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.45, 0.12, 9), toon('#a3a196'));
     st.position.set(sx, heightAt(sx, sz) + 0.03, sz); st.receiveShadow = true; g.add(st);
   }
@@ -563,8 +565,7 @@ export class Rain {
 export class Acorns {
   constructor(scene) {
     this.list = [];
-    const spots = [[4.8, -6.1], [6.8, -8.8], [LAYOUT.pond.x - 0.2, LAYOUT.pond.z - 0.4], [-10, -9.5], [-4, 15.1],
-      [-12, 4], [23, 31], [21, 9], [-3, 29], [24, -15], [-3.6, -8.6], [15.5, -3.8], [-22, 14], [11, 22]];
+    const spots = [[-8.6,35],[-21.8,-21.5],[LAYOUT.pond.x-4,LAYOUT.pond.z+.5],[-10,-9.5],[0,25],[-12,4],[23,31],[21,9],[-27,31],[22,-15],[-36,21],[35,-27],[-4,-40],[17,-40]];
     const nutMat = toon('#9a6332'), capMat = toon('#5b3d22');
     this.glowTex = canvasTex(64, 64, (ctx) => {
       const gr = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
@@ -647,15 +648,16 @@ export function buildWorld(scene) {
   scene.add(pond());
   scene.add(platforms());
   scene.add(floaters());
+  addWayfinding(scene);
 
   const R = rng(21);
   // The full forest ring is made of model assets in dream.js.
   // bushes
-  for (let i = 0; i < 34; i++) {
-    const a = R() * Math.PI * 2, r = 12 + R() * 22;
+  for (let i = 0; i < 20; i++) {
+    const a = R() * Math.PI * 2, r = 25 + R() * 29;
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    if (roadDist(x, z) < 2.5 || nearStructure(x, z, 3)) continue;
-    const b = bush(R, i * 3, 0.8 + R() * 0.7);
+    if (roadDist(x,z)<3 || nearStructure(x,z,3) || focalClearing(x,z,1)) continue;
+    const b = bush(R, i * 3, 0.35 + R() * 0.3);
     b.position.set(x, heightAt(x, z) - 0.15, z);
     scene.add(b);
   }
@@ -663,7 +665,7 @@ export function buildWorld(scene) {
   for (let i = 0; i < 25; i++) {
     const a = R() * Math.PI * 2, r = 6 + R() * 28;
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    if (roadDist(x, z) < 2 || nearStructure(x, z, 2.5)) continue;
+    if (roadDist(x,z)<2.8 || nearStructure(x,z,2.5) || centralMeadow(x,z,1)) continue;
     const rg = new THREE.IcosahedronGeometry(0.2 + R() * 0.3, 1); wobble(rg, 0.2, i, 3);
     const m = new THREE.Mesh(rg, toon('#93918a')); m.scale.y = 0.6;
     m.position.set(x, heightAt(x, z), z); m.castShadow = true;

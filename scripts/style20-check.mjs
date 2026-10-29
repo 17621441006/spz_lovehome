@@ -14,7 +14,7 @@ for(const mode of ['idle','walk','run','sit','dance']){
  const speed=mode==='run'?4:mode==='walk'?CHARACTER_DEFS.xiaosi.walk:0;
  for(let i=0;i<240;i++){
   actor.update(1/60,{speed,running:mode==='run',idle:0,sitting:mode==='sit',grounded:true,actualVelocity:new THREE.Vector3(0,0,speed)});actor.root.updateMatrixWorld(true);
-  const ringWorld=a.ring.getWorldPosition(new THREE.Vector3()),expected=new THREE.Vector3().setFromMatrixPosition(local).applyMatrix4(actor.bones.LeftHand.matrixWorld);
+  const seated=actor.seatedHands.Left.shape,ringWorld=a.ring.getWorldPosition(new THREE.Vector3()),expected=new THREE.Vector3().setFromMatrixPosition(local).lerp(seated.ringTarget,seated.blend).applyMatrix4(actor.bones.LeftHand.matrixWorld);
   assert(ringWorld.distanceTo(expected)<1e-8,mode+' ring detached');
   assert(ringWorld.distanceTo(actor.bones.LeftHand.getWorldPosition(new THREE.Vector3()))<.12,mode+' ring outside hand');
   for(const o of [a.ring,a.necklace,a.hair])assert(o.matrixWorld.elements.every(Number.isFinite));
@@ -22,5 +22,5 @@ for(const mode of ['idle','walk','run','sit','dance']){
  }
 }
 assert(Math.max(...opacities)>.8&&Math.min(...opacities)<.01,'Diamond must pulse visibly');
-const html=fs.readFileSync('dist/index.html','utf8');assert(html.includes('<title>司涌脏·千寻</title>'));assert(html.indexOf('data-character="xiaosi"')<html.indexOf('data-character="xiaoyong"'));assert(html.includes('forest-title.ttf'));assert(html.includes('loading-lite.mp4?v=22'));
+const html=fs.readFileSync('dist/index.html','utf8');assert(html.includes('<title>司涌脏·千寻</title>'));assert(html.indexOf('data-character="xiaosi"')<html.indexOf('data-character="xiaoyong"'));assert(html.includes('forest-title.ttf'));assert(html.includes('loading-lite-v28.mp4'));
 console.log({C_hair:'PASS',accessoryBoneBinding:'PASS in idle/walk/run/sit/dance',diamondPulse:[Math.min(...opacities),Math.max(...opacities)],speeds:'PASS exact ratios',firstCharacter:'小司',title:'司涌脏·千寻'});
