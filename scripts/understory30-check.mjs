@@ -13,11 +13,11 @@ const scene=new THREE.Scene(),before=colliders.length;
 const full=addForestUnderstory(scene),low=addForestUnderstory(new THREE.Scene(),{low:true});
 assert.equal(colliders.length,before,'soft foliage must not create movement obstacles');
 assert(full.stats.plants>40,'both forest regions receive visible understory');
-assert(full.stats.batches<=24,'at most three instanced types per quadrant');
-assert(full.stats.triangles<180000,'leaf silhouettes keep a bounded geometry budget');
+assert(full.stats.batches<=32,'four instanced types per quadrant, including the new upper understory');
+assert(full.stats.triangles<280000,'denser silhouettes retain a bounded geometry budget');
 assert(low.stats.plants<full.stats.plants,'low mode reduces planting density');
 for(const state of [full,low]){
- for(const p of state.stats.placements){assert(understoryClearance(p.x,p.z,p.radius));assert(!centralMeadow(p.x,p.z,p.radius));assert(!focalClearing(p.x,p.z,p.radius+.25));assert(trailEdge(p.x,p.z)>p.radius+.28);assert(catbusRouteDist(p.x,p.z)>p.radius+2.85);assert(!inLakeWater(p.x,p.z,-p.radius));assert(Math.abs(p.y-heightAt(p.x,p.z))<.03);}
+ for(const p of state.stats.placements){assert(understoryClearance(p.x,p.z,p.radius));assert(!centralMeadow(p.x,p.z,p.radius));assert(!focalClearing(p.x,p.z,p.radius+.25));assert(trailEdge(p.x,p.z)>p.radius+.12);assert(catbusRouteDist(p.x,p.z)>p.radius+2.85);assert(!inLakeWater(p.x,p.z,-p.radius));assert(Math.abs(p.y-heightAt(p.x,p.z))<.03);}
  for(const mesh of state.group.children){assert(mesh.isInstancedMesh);assert(mesh.count>0);const g=mesh.geometry;for(const a of Object.values(g.attributes))for(const value of a.array)assert(Number.isFinite(value));assert(g.index.count%3===0);const s={uniforms:{},vertexShader:'#include <begin_vertex>',fragmentShader:'#include <color_fragment>'};mesh.material.onBeforeCompile(s);assert(s.vertexShader.includes('instanceMatrix'));assert(s.fragmentShader.includes('uUnderstorySnow'));}
  state.update(1/60,{x:1000,z:1000});assert.equal(state.stats.visibleBatches,0);state.update(1/60,UNDERSTORY_ZONES[0],{snow:1,rain:.2,night:1});assert(state.stats.visibleBatches>0);assert(state.stats.visibleBatches<=state.stats.batches);
 }

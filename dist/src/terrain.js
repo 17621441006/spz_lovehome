@@ -150,6 +150,7 @@ export function buildTerrain() {
     c.lerp(new THREE.Color('#45655a'),forestDepth(x,z)*.38);
     const slope=Math.hypot(heightAt(x+.3,z)-heightAt(x-.3,z),heightAt(x,z+.3)-heightAt(x,z-.3))/.6;
     c.lerp(cliff,ss(.5,1.3,slope)*.72);
+    c.lerp(forest,ss(.45,1.2,slope)*forestDepth(x,z)*.38);
     const edge=edgeRadius(x,z);c.lerp(cliff,ss(edge,edge+LAYOUT.terrainRadius-LAYOUT.playRadius-.5,r));
     const dl=lakeDist(x,z),shore=lakeShore(x,z);c.lerp(dirt,.5*ss(shore+1.8,shore+.3,dl));c.lerp(mud,ss(shore-.1,shore-1.4,dl));
     const dc = Math.hypot(x - LAYOUT.camphor.x, z - LAYOUT.camphor.z);

@@ -46,6 +46,7 @@ export function focalClearing(x,z,pad=0){
  return LAYOUT.buildings.some(b=>Math.hypot(x-b.x,z-b.z)<b.flat+3+pad);
 }
 export function regionDescription(x,z){
+ if(Math.hypot(x+34,z+22)<7)return '蕨谷 · 月袋把一小弯月光藏在林荫里';
  if(Math.hypot(x-LAYOUT.dewGlade.x,z-LAYOUT.dewGlade.z)<8)return '露灯小径 · 跟着暖光，帮灯尾茸寻找晨露';
  if(Math.hypot(x-LAYOUT.lake.x,z-LAYOUT.lake.z)<26)return '星湖 · 芦苇、木栈桥与阿渔伯的钓场';
  if(Math.hypot(x-LAYOUT.elder.x,z-LAYOUT.elder.z)<13)return '云冠古树 · 过溪入树洞，沿光环去树顶';
@@ -59,5 +60,5 @@ export function regionDescription(x,z){
  if(Math.hypot(x+14,z+16)<9)return '樟树神社 · 旧鸟居下的安静林荫';
  if(centralMeadow(x,z,3))return '初晴草甸 · 北去星湖，西寻古树，南回树屋';
  if(Math.hypot(x,z)>56)return '云海崖畔 · 远处只有海与风';
- return '林间小径 · 跟着土路，慢慢发现下一片风景';
+ return '林间小径 · 沿着苔石和小路，发现下一片风景';
 }

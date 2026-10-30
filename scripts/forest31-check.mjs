@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import {THREE,parseAsset} from './headless.mjs';
+import {buildWorld,colliders} from '../dist/src/world.js';
+import {loadDreamWorld} from '../dist/src/dream.js';
+import {heightAt} from '../dist/src/terrain.js';
+import {addStonePaths} from '../dist/src/stone-paths.js';
+import {Yuedai,YUEDAI_ASSET} from '../dist/src/yuedai.js';
+const scene=new THREE.Scene();buildWorld(scene);await loadDreamWorld(scene,false);
+const before=colliders.length,paving=addStonePaths(scene);assert.equal(colliders.length,before);assert.equal(paving.stats.drawCalls,2);assert(paving.stats.stones>70&&paving.stats.triangles<7000);
+for(const p of paving.stats.samples)assert(Math.abs(p.top-heightAt(p.x,p.z)-.025)<1e-8);
+const gltf=await parseAsset(YUEDAI_ASSET),npc=new Yuedai(gltf,{random:()=>.45});scene.add(npc.root);assert.equal(npc.authored.length,23);assert(npc.feet.every(f=>f.samples.length));assert(npc.feet.length===2);
+const away=new THREE.Vector3(-26,heightAt(-26,-23),-23),near=new THREE.Vector3(-34,heightAt(-34,-20),-20),states=new Set(),clips=new Set();let distance=0,old=npc.position.clone(),maxPenetration=0;
+function tick(player=away,context={}){npc.update(1/60,player,context);distance+=npc.position.distanceTo(old);old.copy(npc.position);states.add(npc.state);clips.add(npc.action.getClip().name);assert(npc.nav.safePoint(npc.position,npc.collider));assert(npc.model.scale.equals(new THREE.Vector3(.8,.8,.8)));for(const foot of npc.feet)for(const s of foot.samples){const p=s.mesh.getVertexPosition(s.index,new THREE.Vector3()).applyMatrix4(s.mesh.matrixWorld);maxPenetration=Math.max(maxPenetration,heightAt(p.x,p.z)-p.y);}}
+for(let i=0;i<3600;i++)tick();assert(distance>3,'Actual wandering must accompany the walking clip');assert(states.has('walk'));
+near.copy(npc.position).add(new THREE.Vector3(0,0,1.5));near.y=heightAt(near.x,near.z);
+for(let i=0;i<120;i++)tick(near);assert(npc.canInvite(near));assert(clips.has('YD_Greet'));
+npc.showPocket();for(let i=0;i<60;i++)tick(near,{busy:true});assert.equal(npc.state,'pocket');assert.equal(npc.action.getClip().name,'YD_Pocket');
+const pose=npc.head.quaternion.clone(),position=npc.position.clone();for(let i=0;i<180;i++)tick(near,{paused:true});assert(npc.head.quaternion.equals(pose));assert(npc.position.equals(position));
+assert(maxPenetration<.035,'Feet cannot pass through the terrain');assert(npc.collider.noFloor);
+const {samples,...pavingStats}=paving.stats;console.log(JSON.stringify({paving:pavingStats,bones:npc.authored.length,states:[...states],clips:[...clips],distance,maxPenetration,menuPause:'PASS',dialogGesture:'PASS',safeWander:'PASS'},null,2));
+npc.dispose();paving.dispose();assert.equal(colliders.length,before);

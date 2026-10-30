@@ -13,7 +13,7 @@ export const UNDERSTORY_ZONES=Object.freeze([
 ]);
 const TAU=Math.PI*2,clamp=THREE.MathUtils.clamp;
 const V=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
-const greenDark=new THREE.Color('#234d3a'),greenMid=new THREE.Color('#40714d'),greenLight=new THREE.Color('#829a59');
+const greenDark=new THREE.Color('#294f43'),greenMid=new THREE.Color('#5f8456'),greenLight=new THREE.Color('#b0b776');
 
 class PlantGeometry{
  constructor(){this.positions=[];this.colors=[];this.indices=[];}
@@ -40,13 +40,32 @@ function broadleaf(){
 
 function fern(){
  const g=new PlantGeometry();
- for(let k=0;k<5;k++){
+ for(let k=0;k<4;k++){
   const a=k*2.399,dir=V(Math.sin(a),0,Math.cos(a)),side=V(Math.cos(a),0,-Math.sin(a));
   const center=t=>dir.clone().multiplyScalar(t*(.89+(k%2)*.10)).add(V(0,.055+.66*Math.sin(t*Math.PI*.71),0));
   g.tube([center(0),center(.28),center(.6),center(1)],.009,greenLight.clone().lerp(greenDark,.4),8);
-  for(let j=0;j<8;j++)for(const sign of [-1,1]){
-   const t=.16+j*.095,base=center(t),reach=(.29*(1-t)+.025),tip=base.clone().addScaledVector(side,sign*reach).addScaledVector(dir,.11*(1-t));
-   g.surface(4,2,(u,v)=>{const s=v*2-1,p=base.clone().lerp(tip,u).addScaledVector(dir,s*.047*Math.sin(Math.PI*u));p.y+=.042*Math.sin(Math.PI*u)-s*s*.012;const c=greenDark.clone().lerp(greenMid,.52+u*.18).lerp(greenLight,v===.5?.36:.10);return{p,c};});
+  for(let j=0;j<6;j++)for(const sign of [-1,1]){
+   const t=.16+j*.13,base=center(t),reach=(.34*(1-t)+.025),tip=base.clone().addScaledVector(side,sign*reach).addScaledVector(dir,.11*(1-t));
+   g.surface(2,2,(u,v)=>{const s=v*2-1,p=base.clone().lerp(tip,u).addScaledVector(dir,s*.06*Math.sin(Math.PI*u));p.y+=.042*Math.sin(Math.PI*u)-s*s*.012;const c=greenDark.clone().lerp(greenMid,.52+u*.18).lerp(greenLight,v===.5?.36:.10);return{p,c};});
+  }
+ }
+ return g.finish();
+}
+
+// Chest-high, overlapping foliage closes the empty band between grass and tree
+// crowns. A few curved stems and broad leaves provide silhouette, not fur cards.
+function shrub(){
+ const g=new PlantGeometry();
+ for(let branch=0;branch<3;branch++){
+  const angle=branch*2.399,dir=V(Math.sin(angle),0,Math.cos(angle)),side=V(dir.z,0,-dir.x),h=1.65+branch*.24;
+  const stem=t=>dir.clone().multiplyScalar(.25*t*t).add(V(0,h*t,0));
+  g.tube([stem(0),stem(.35),stem(.7),stem(1)],.018,greenDark,6);
+  for(let leaf=0;leaf<6;leaf++){
+   const t=.29+leaf*.125,sign=leaf%2?1:-1,base=stem(t),reach=.54+(leaf%3)*.055;
+   const outward=side.clone().multiplyScalar(sign).addScaledVector(dir,.3).normalize();
+   const across=V(outward.z,0,-outward.x);
+   g.surface(6,2,(u,v)=>{const s=v*2-1,p=base.clone().addScaledVector(outward,reach*u).addScaledVector(across,s*.23*Math.sin(Math.PI*u)**.7);p.y+=.16*Math.sin(Math.PI*u)-.12*u*u-.03*s*s;
+    return{p,c:greenDark.clone().lerp(greenMid,.54+u*.25).lerp(greenLight,(v===.5?.32:.05)+u*.10)};});
   }
  }
  return g.finish();
@@ -71,21 +90,22 @@ function flowers(){
 /** Whole foliage footprint, rather than only its stem, must leave the path clear. */
 export function understoryClearance(x,z,radius=.9,{checkColliders=true}={}){
  if(![x,z,radius].every(Number.isFinite)||radius<0)return false;
- if(focalClearing(x,z,radius+.25)||trailDist(x,z)<radius+.80||trailEdge(x,z)<radius+.28||roadDist(x,z)<radius+2.85||catbusRouteDist(x,z)<radius+2.85)return false;
+ if(focalClearing(x,z,radius+.25)||trailDist(x,z)<radius+.80||trailEdge(x,z)<radius+.12||roadDist(x,z)<radius+2.85||catbusRouteDist(x,z)<radius+2.85)return false;
+ if(Math.hypot(x+34,z+22)<2.1+radius)return false;
  if(Math.hypot(x,z)>edgeRadius(x,z)-radius-3||Math.hypot(x-LAYOUT.elder.x,z-LAYOUT.elder.z)<LAYOUT.elder.flat+2+radius||Math.hypot(x-LAYOUT.camphor.x,z-LAYOUT.camphor.z)<4+radius)return false;
  if(inLakeWater(x,z,-radius-.6)||Math.hypot(x-LAYOUT.pond.x,z-LAYOUT.pond.z)<LAYOUT.pond.r+radius+1)return false;
  const y=heightAt(x,z);let low=y,high=y;
  for(let i=0;i<12;i++){const a=i*TAU/12,px=x+Math.cos(a)*radius,pz=z+Math.sin(a)*radius,h=heightAt(px,pz);if(inElderRiver(px,pz)||inLakeWater(px,pz,-.4))return false;low=Math.min(low,h);high=Math.max(high,h);}
- if(inElderRiver(x,z)||high-low>.55)return false;
+ if(inElderRiver(x,z)||high-low>.90)return false;
  if(checkColliders&&colliders.some(c=>!c.floorOnly&&!c.dynamic&&c.top>y+.15&&(c.bottom===undefined||c.bottom<y+1.3)&&(c.type==='circle'?Math.hypot(x-c.x,z-c.z)<c.r+.32:c.type==='box'&&x>c.minX-.40&&x<c.maxX+.40&&z>c.minZ-.40&&z<c.maxZ+.40)))return false;
  return true;
 }
 
 export function addForestUnderstory(scene,{low=false}={}){
  const group=new THREE.Group();group.name='层叠蕨谷 · 大叶与暖花';scene.add(group);
- const uniforms={uUnderstoryTime:{value:0},uUnderstoryRain:{value:0},uUnderstorySnow:{value:0}};
+ const uniforms={uUnderstoryTime:{value:0},uUnderstoryRain:{value:0},uUnderstorySnow:{value:0},uUnderstoryPlayer:{value:new THREE.Vector3(0,1,6)}};
  function material(isFlower=false){
-  const m=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.98,metalness:0,side:THREE.DoubleSide,emissive:isFlower?'#b37333':'#000000',emissiveIntensity:isFlower?.015:0});
+  const m=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.98,metalness:0,side:THREE.DoubleSide,alphaTest:.35,emissive:isFlower?'#b37333':'#314336',emissiveIntensity:isFlower?.015:.10});
   m.onBeforeCompile=sh=>{
    Object.assign(sh.uniforms,uniforms);
    sh.vertexShader='uniform float uUnderstoryTime,uUnderstoryRain;varying float vUnderstoryTop;varying vec3 vUnderstoryWorld;\n'+sh.vertexShader;
@@ -97,27 +117,33 @@ export function addForestUnderstory(scene,{low=false}={}){
     vUnderstoryWorld=(modelMatrix*instanceMatrix*vec4(transformed,1.)).xyz;
     vUnderstoryTop=smoothstep(.12,.72,abs(objectNormal.y))*smoothstep(.09,.40,position.y);
    `);
-   sh.fragmentShader='uniform float uUnderstorySnow;varying float vUnderstoryTop;varying vec3 vUnderstoryWorld;\n'+sh.fragmentShader;
+   sh.fragmentShader='uniform float uUnderstorySnow;uniform vec3 uUnderstoryPlayer;varying float vUnderstoryTop;varying vec3 vUnderstoryWorld;\n'+sh.fragmentShader;
    sh.fragmentShader=sh.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
     float underMottle=.97+.03*sin(vUnderstoryWorld.x*12.7+sin(vUnderstoryWorld.z*9.1));
     diffuseColor.rgb*=underMottle;
     diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.93,.96,1.),uUnderstorySnow*vUnderstoryTop*.9);
+    // A stable cutout around the viewing ray keeps nearby opaque leaf batches
+    // from swallowing the camera or the player. No blended sorting or shimmer.
+    vec3 underRay=uUnderstoryPlayer-cameraPosition;
+    float underT=dot(vUnderstoryWorld-cameraPosition,underRay)/max(dot(underRay,underRay),.01);
+    float underNear=smoothstep(.45,.95,distance(vUnderstoryWorld,cameraPosition));
+    if(underT>0.0&&underT<.96){float underD=distance(vUnderstoryWorld,cameraPosition+underRay*underT);underNear*=smoothstep(.38,.72,underD);}
+    diffuseColor.a*=underNear;
    `);
   };
-  m.customProgramCacheKey=()=> 'forest-understory30-v1';return m;
+  m.customProgramCacheKey=()=> 'forest-understory31-layered';return m;
  }
- const leafy=material(),warm=material(true),prototypes={broadleaf:broadleaf(),fern:fern(),flowers:flowers()};
- const batches=[],placements=[],counts={broadleaf:0,fern:0,flowers:0};
+ const leafy=material(),warm=material(true),prototypes={broadleaf:broadleaf(),fern:fern(),flowers:flowers(),shrub:shrub()};
+ const batches=[],placements=[],counts={broadleaf:0,fern:0,flowers:0,shrub:0};
  const dummy=new THREE.Object3D(),R=rng(300731);
  for(const zone of UNDERSTORY_ZONES){
-  const accepted=[],cells=new Map(),target=low?60:110;
+  const accepted=[],cells=new Map(),target=low?105:200;
   for(let i=0;i<target*40&&accepted.length<target;i++){
    const a=R()*TAU,d=Math.sqrt(R()),x=zone.x+Math.cos(a)*zone.rx*d,z=zone.z+Math.sin(a)*zone.rz*d;
-   const kind=R()<.51?'broadleaf':'fern',scale=(kind==='broadleaf'?.80:.76)+R()*.36;
+   const choice=R(),kind=choice<.30?'shrub':choice<.65?'broadleaf':'fern',scale=(kind==='shrub'?.80:kind==='broadleaf'?.73:.76)+R()*.38;
    const radius=prototypes[kind].userData.footprint*scale+.10;
-   // A meandering walk-through gap remains inside each dense planting patch.
-   const gap=z-zone.z-.24*(x-zone.x)-.65*Math.sin((x-zone.x)*.5);
-   if(Math.abs(gap)<1.0+radius||!understoryClearance(x,z,radius)||accepted.some(p=>Math.hypot(x-p.x,z-p.z)<(p.radius+radius)*.69))continue;
+   // Keep the actual paths open, but let soft leaves overlap in woodland beds.
+   if(!understoryClearance(x,z,radius)||accepted.some(p=>Math.hypot(x-p.x,z-p.z)<(p.radius+radius)*.52))continue;
    const entry={kind,x,z,y:heightAt(x,z)-.018,scale,radius,angle:R()*TAU,zone:zone.id};accepted.push(entry);placements.push(entry);counts[kind]++;
    const cellKey=(x<zone.x?0:1)+':'+(z<zone.z?0:1),key=cellKey+':'+kind;
    if(!cells.has(key))cells.set(key,[]);cells.get(key).push(entry);
@@ -125,7 +151,7 @@ export function addForestUnderstory(scene,{low=false}={}){
   }
   for(const [key,entries]of cells){
    const kind=entries[0].kind,mesh=new THREE.InstancedMesh(prototypes[kind],kind==='flowers'?warm:leafy,entries.length);
-   mesh.name=zone.name+' · '+({broadleaf:'弯叶',fern:'羽蕨',flowers:'暖花'}[kind]);mesh.castShadow=false;mesh.receiveShadow=true;
+   mesh.name=zone.name+' · '+({broadleaf:'弯叶',fern:'羽蕨',flowers:'暖花',shrub:'高叶丛'}[kind]);mesh.castShadow=false;mesh.receiveShadow=true;
    for(let i=0;i<entries.length;i++){const p=entries[i];dummy.position.set(p.x,p.y,p.z);dummy.rotation.set(0,p.angle,0);dummy.scale.setScalar(p.scale);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);mesh.setColorAt(i,new THREE.Color().setRGB(.91+R()*.09,.94+R()*.06,.89+R()*.11));}
    mesh.instanceMatrix.needsUpdate=true;mesh.instanceColor.needsUpdate=true;mesh.computeBoundingSphere();mesh.computeBoundingBox();mesh.userData.understory={zone:zone.id,kind,count:entries.length,cell:key};group.add(mesh);
    const center=mesh.boundingSphere.center.clone(),radius=mesh.boundingSphere.radius;
@@ -138,6 +164,7 @@ export function addForestUnderstory(scene,{low=false}={}){
   update(dt,player,env={}){
    elapsed+=clamp(Number.isFinite(dt)?dt:0,0,.1);uniforms.uUnderstoryTime.value=elapsed;uniforms.uUnderstoryRain.value=clamp(env.rain||0,0,1);uniforms.uUnderstorySnow.value=clamp(env.snow||0,0,1);leafy.roughness=.98-(env.rain||0)*.12;warm.emissiveIntensity=.015+(env.night||0)*.075;
    const p=player?.pos||player?.position||player;if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.z))return;
+   uniforms.uUnderstoryPlayer.value.set(p.x,(p.y||0)+.85,p.z);
    let visible=0;for(const b of batches){const d=Math.hypot(p.x-b.center.x,p.z-b.center.z)-b.radius,limit=b.range+(b.mesh.visible?2:0);b.mesh.visible=d<limit;if(b.mesh.visible)visible++;}stats.visibleBatches=visible;
   },
   dispose(){group.removeFromParent();for(const b of batches)b.mesh.dispose();for(const g of Object.values(prototypes))g.dispose();leafy.dispose();warm.dispose();}

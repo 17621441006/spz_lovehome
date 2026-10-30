@@ -35,7 +35,7 @@ export class DengweirongCanopy{
   }else if(this.mode==='jump'){
    const t=clamp(this.elapsed/this.flight.duration,0,1),arc=4*t*(1-t);
    n.position.lerpVectors(this.flight.from,this.flight.to,t);n.position.y+=this.flight.height*arc;
-   this.crouch=0;this.tuck=Math.sin(Math.PI*t)*.10;this.pitch=.12*Math.cos(Math.PI*t);
+   this.crouch=0;this.tuck=Math.sin(Math.PI*t)*.14;this.pitch=.12*Math.cos(Math.PI*t);
    if(t===1){n.position.copy(this.flight.to);this.index=this.next;this.next=null;this.mode='land';this.elapsed=0;this.completed++;this.pitch=this.tuck=0;}
   }else if(this.mode==='land'){
    const t=clamp(this.elapsed/.38,0,1);this.crouch=.055*Math.sin(Math.PI*t);this.pitch=0;this.tuck=0;
@@ -50,10 +50,14 @@ export class DengweirongCanopy{
   const body=n.nodes.Body.getWorldPosition(V());body.y-=this.crouch;n.nodes.Body.parent.worldToLocal(body);n.nodes.Body.position.copy(body);
   if(this.mode==='jump'){
    n.model.rotation.x=this.pitch;
-   for(const foot of n.feet){const p=foot.bone.getWorldPosition(V());p.y+=this.tuck;foot.bone.parent.worldToLocal(p);foot.bone.position.copy(p);}
+   const flightT=clamp(this.elapsed/this.flight.duration,0,1),fold=Math.sin(Math.PI*flightT);
+   for(const foot of n.feet){const p=foot.bone.getWorldPosition(V());p.y+=this.tuck;foot.bone.parent.worldToLocal(p);foot.bone.position.copy(p);const front=foot.bone.name.includes('_F');foot.bone.rotation.x+=(front?-.36:.48)*fold;}
+   n.nodes.Head.rotation.x+=.16*Math.sin(Math.PI*flightT);
   }else n.model.rotation.x=0;
-  if(n.nodes.Tail)n.nodes.Tail.rotation.x+=this.mode==='jump'?-this.pitch*.6:0;
-  if(n.nodes.Ear_L)n.nodes.Ear_L.rotation.y+=this.mode==='jump'?.12*this.tuck/.1:0;
-  if(n.nodes.Ear_R)n.nodes.Ear_R.rotation.y-=this.mode==='jump'?.12*this.tuck/.1:0;
+  const airborne=this.mode==='jump',bounce=this.mode==='land'?Math.sin(Math.PI*clamp(this.elapsed/.38,0,1)):0;
+  if(n.nodes.Tail){n.nodes.Tail.rotation.x+=airborne?-this.pitch*.9:.045*Math.sin(n.time*1.4);n.nodes.Tail.rotation.z+=.06*Math.sin(n.time*1.1);}
+  if(n.nodes.Ear_L)n.nodes.Ear_L.rotation.y+=airborne?.24*this.tuck/.14:.04*Math.sin(n.time*1.7)+bounce*.13;
+  if(n.nodes.Ear_R)n.nodes.Ear_R.rotation.y-=airborne?.21*this.tuck/.14:.04*Math.sin(n.time*1.7+.8)+bounce*.13;
+  if(this.perched){n.nodes.Head.rotation.z+=.055*Math.sin(n.time*.75);}
  }
 }

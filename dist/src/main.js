@@ -10,6 +10,8 @@ import {regionDescription,forestDepth} from './world-layout.js';
 import {loadDengweirong} from './dengweirong.js';
 import {DewLanternGame} from './minigames/dew-lantern.js';
 import {addForestUnderstory} from './forest-understory.js';
+import {addStonePaths} from './stone-paths.js';
+import {loadYuedai,YUEDAI_HOME} from './yuedai.js';
 import {addElderTree,updateElderGlade,inElderRiver,onElderBridge} from './elder-tree.js';
 import {moveWithCollisions} from './collision.js';
 import {planStartup,finishStartup,detailStream} from './asset-stream.js';
@@ -85,6 +87,7 @@ await loadDreamWorld(scene, LOW,{progressive:true});
 await addEnchantedGrove(scene,LOW,{progressive:true});
 const fantasyEcology = await addFantasyEcology(scene);
 const forestUnderstory=addForestUnderstory(scene,{low:LOW});
+const stonePaths=addStonePaths(scene);
 scene.add(buildGrass(LOW ? 15000 : 38000, (x, z) => nearStructure(x, z, 0)));
 scene.add(buildFlowers(LOW ? 250 : 520, (x, z) => nearStructure(x, z, 0.5)));
 const rain = new Rain(scene);
@@ -150,6 +153,7 @@ if (params.get('cam')) {
 // ---------------- input ----------------
 const keys = {};const sprint=new SprintControl();
 let dewNpc=null,dewGame=null,dewLoading=null,dewRetryAt=0,worldInputFocused=true;
+let moonNpc=null,moonLoading=null,moonRetryAt=0;
 let started = false;
 addEventListener('keydown', (e) => {
   if (!started || busy() || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
@@ -162,7 +166,7 @@ addEventListener('keydown', (e) => {
   if(e.repeat && [' ','e','j','k','c','x'].includes(k))return;
   sprint.down(k,performance.now()/1000,e.repeat);keys[k] = true; keys[e.code] = true;
   if (k === ' ') { P.jumpBuf = 0.15; e.preventDefault(); }
-  if (k === 'e') {if(nearArrivalRest())useArrivalRest();else if(totoro.occupied||nearTotoro()&&totoro.sleep>.85)useTotoroBed();else if(nearCanopy())useCanopy();else if(nearDewFriend())talkToDewFriend();else if(!catbus.riding&&nearKeeper())talkToKeeper();else if(catbus.riding||P.pos.distanceTo(catbus.root.position)<6&&!nearTotoro())openBusDialog();else meow();}
+  if (k === 'e') {if(nearArrivalRest())useArrivalRest();else if(totoro.occupied||nearTotoro()&&totoro.sleep>.85)useTotoroBed();else if(nearCanopy())useCanopy();else if(nearMoonFriend())talkToMoonFriend();else if(nearDewFriend())talkToDewFriend();else if(!catbus.riding&&nearKeeper())talkToKeeper();else if(catbus.riding||P.pos.distanceTo(catbus.root.position)<6&&!nearTotoro())openBusDialog();else meow();}
   if(k==='j')performAction(0);
   if(k==='k')performAction(1);
   if (k === 'r') toggleRain();
@@ -227,7 +231,7 @@ const $ = (id) => document.getElementById(id);
 $('acornTotal').textContent = acorns.total;
 function openBusDialog(){if(!started||characterMenuOpen||equipment.open)return;if(document.pointerLockElement)document.exitPointerLock();clearMovement();$('busDialog').hidden=false;$('busMessage').textContent=catbus.riding?'想在这里歇一歇吗？我会慢慢停稳，再让你下车。':'喵～坐稳啦，要一起兜风吗？我会沿村庄和星湖巡游，到站停一停。';$('busClose').focus();$('busBoard').hidden=catbus.riding;$('busExit').hidden=!catbus.riding;}
 $('busPrompt').onclick=openBusDialog;
-$('actPrompt').onclick=()=>{if($('actPrompt').dataset.target==='arrival')useArrivalRest();else if($('actPrompt').dataset.target==='canopy')useCanopy();else if($('actPrompt').dataset.target==='dew')talkToDewFriend();else if($('actPrompt').dataset.target==='keeper')talkToKeeper();else if(totoro.occupied||totoro.sleep>.85)useTotoroBed();else meow();};
+$('actPrompt').onclick=()=>{if($('actPrompt').dataset.target==='arrival')useArrivalRest();else if($('actPrompt').dataset.target==='canopy')useCanopy();else if($('actPrompt').dataset.target==='moon')talkToMoonFriend();else if($('actPrompt').dataset.target==='dew')talkToDewFriend();else if($('actPrompt').dataset.target==='keeper')talkToKeeper();else if(totoro.occupied||totoro.sleep>.85)useTotoroBed();else meow();};
 $('busClose').onclick=()=>{$('busDialog').hidden=true;};
 $('busBoard').onclick=()=>{if(catbus.speed>.05){$('busMessage').textContent='等我停稳一下，再点「上车兜风」就好。';return;}catbus.riding=true;catbus.stopping=false;catbus.wait=1;cat.model.rotation.y=0;cat.oneShot=null;P.jumpBuf=0;clearMovement();$('busDialog').hidden=true;};
 $('busExit').onclick=()=>{catbus.stopping=true;$('busDialog').hidden=true;toast('猫车正在缓缓停车…');};
@@ -354,6 +358,15 @@ function useArrivalRest(){
 function dewPlayEnabled(){return started&&worldInputFocused&&!characterMenuOpen&&!switching&&!equipment.open&&!catbus.riding&&!totoro.occupied&&!canopySeated&&!portalTrip&&!busy()&&P.grounded&&!cat.isPerforming&&!document.hidden&&$('busDialog').hidden&&$('weatherPanel').hidden&&$('helpPanel').hidden&&$('settingsPanel').hidden;}
 function nearDewFriend(){return !!dewGame&&dewPlayEnabled()&&dewGame.canInteract(P.pos);}
 function talkToDewFriend(){if(!nearDewFriend())return;dewGame.interact();}
+function nearMoonFriend(){return !!moonNpc&&dewPlayEnabled()&&moonNpc.canInvite(P.pos);}
+async function talkToMoonFriend(){
+ if(!nearMoonFriend())return;if(document.pointerLockElement)document.exitPointerLock();clearMovement();P.idle=0;moonNpc.showPocket();
+ await showDialog({speaker:'月袋',color:'#a99a72',lines:['嘘……我把昨晚没用完的月光，藏进口袋了。','累了就来蕨谷歇一会儿吧。沿着苔石和蕨叶，可以绕回古树那边。']});clearMovement();
+}
+function loadMoonFriend(){
+ if(moonNpc||moonLoading||performance.now()<moonRetryAt)return;
+ moonLoading=loadYuedai(scene).then(npc=>{moonNpc=npc;}).catch(error=>{moonRetryAt=performance.now()+30000;console.warn('月袋暂未载入，稍后重试',error);}).finally(()=>{moonLoading=null;});
+}
 function loadDewFriend(){
  if(dewNpc||dewLoading||performance.now()<dewRetryAt)return;
  const glade=LAYOUT.dewGlade,home={...glade.home};
@@ -697,7 +710,7 @@ function frame() {
   catbus.paused=!started||characterMenuOpen||equipment.open||!$('busDialog').hidden;
   catbus.update(dt,[...roster.cache.values()].filter(a=>!(catbus.riding&&a===cat)).map(a=>a.root.position).concat([chu.group.position,chibi.group.position]));
   $('busPrompt').hidden=!started||characterMenuOpen||equipment.open||(!catbus.riding&&P.pos.distanceTo(catbus.root.position)>6);
-  {const near=!started||characterMenuOpen||equipment.open||catbus.riding||busy()?null:nearArrivalRest()?'arrival':nearCanopy()?'canopy':nearDewFriend()?'dew':nearKeeper()?'keeper':nearTotoro()?'totoro':null,ap=$('actPrompt');ap.hidden=!near;if(near){$('busPrompt').hidden=true;const label=near==='arrival'?(arrivalSeated?'E / 点击 · 起身散步':'E / 点击 · 在迎风树下坐坐'):near==='canopy'?(P.pos.y<elderSanctuary.canopy.minY?'E / 点击 · 去树冠观景':canopySeated?'E / 点击 · 起身':'E / 点击 · 坐在树叶上观景'):near==='dew'?'E / 点击 · '+(dewGame.hint||'和灯尾茸说话'):near==='keeper'?'E / 点击 · 和阿渔伯说话（钓鱼）':totoro.occupied?'E / 点击 · 离开龙猫的肚子':totoro.sleep>.85?'E / 点击 · 坐在龙猫肚子上':'E / 点击 · 和龙猫大人打招呼';if(ap.textContent!==label)ap.textContent=label;ap.dataset.target=near;}}
+  {const near=!started||characterMenuOpen||equipment.open||catbus.riding||busy()?null:nearArrivalRest()?'arrival':nearCanopy()?'canopy':nearMoonFriend()?'moon':nearDewFriend()?'dew':nearKeeper()?'keeper':nearTotoro()?'totoro':null,ap=$('actPrompt');ap.hidden=!near;if(near){$('busPrompt').hidden=true;const label=near==='arrival'?(arrivalSeated?'E / 点击 · 起身散步':'E / 点击 · 在迎风树下坐坐'):near==='canopy'?(P.pos.y<elderSanctuary.canopy.minY?'E / 点击 · 去树冠观景':canopySeated?'E / 点击 · 起身':'E / 点击 · 坐在树叶上观景'):near==='moon'?'E / 点击 · 看看月袋的月光口袋':near==='dew'?'E / 点击 · '+(dewGame.hint||'和灯尾茸说话'):near==='keeper'?'E / 点击 · 和阿渔伯说话（钓鱼）':totoro.occupied?'E / 点击 · 离开龙猫的肚子':totoro.sleep>.85?'E / 点击 · 坐在龙猫的肚子上':'E / 点击 · 和龙猫大人打招呼';if(ap.textContent!==label)ap.textContent=label;ap.dataset.target=near;}}
   $('busPrompt').textContent=catbus.riding?((catbus.wait>0?'停靠 · '+catbus.stationName:catbus.blocked?'正在礼让行人':catbus.currentRoute?.name||'村庄漫游')+' · E / 点击 下车'):'E / 点击 与猫车对话';
   if(catbus.stopping&&catbus.speed<.025&&catbus.riding){const exit=catbus.exitPoint();if(exit){catbus.riding=false;catbus.stopping=false;catbus.wait=8;P.pos.copy(exit);cat.root.position.copy(exit);P.grounded=true;P.idle=0;P.vel.set(0,0,0);toast('到啦，慢慢下车。');}}
 
@@ -708,6 +721,8 @@ function frame() {
   if(destination){portalTrip={...destination,time:0,moved:false};P.vel.set(0,0,0);P.vy=0;portalFade.classList.add('active');}
   if(portalTrip){portalTrip.time+=dt;if(portalTrip.time>=.28&&!portalTrip.moved){P.pos.copy(portalTrip.position);P.vel.set(0,0,0);P.vy=0;P.grounded=true;P.idle=portalTrip.canopy?10:0;canopySeated=!!portalTrip.canopy;cat.root.position.copy(P.pos);cam.target.copy(P.pos).y+=CHARACTER_DEFS[characterId].cameraHeight;portalTrip.moved=true;toast(portalTrip.canopy?'树叶软软的 · 光环可以回到圆台':portalTrip.upper?'云冠观景台 · 按 E 去树冠坐坐':'回到古树的怀抱',3);}if(portalTrip.time>=.42)portalFade.classList.remove('active');if(portalTrip.time>=.85)portalTrip=null;}
   if(started&&detailStream.enabled&&!characterMenuOpen&&Math.hypot(P.pos.x-LAYOUT.dewGlade.home.x,P.pos.z-LAYOUT.dewGlade.home.z)<38)loadDewFriend();
+  if(started&&detailStream.enabled&&!characterMenuOpen&&Math.hypot(P.pos.x-YUEDAI_HOME.x,P.pos.z-YUEDAI_HOME.z)<38)loadMoonFriend();
+  moonNpc?.update(dt,P.pos,{paused:!started||!worldInputFocused||document.hidden||characterMenuOpen,busy:equipment.open||busy()||!$('actionMenu').hidden||!$('settingsPanel').hidden||!$('weatherPanel').hidden||!$('helpPanel').hidden,night:env.night});
   if(dewNpc){dewNpc.update(dt,elapsed,P.pos,{weather:env,busy:equipment.open||busy()||!$('busDialog').hidden||!$('weatherPanel').hidden||!$('helpPanel').hidden||!$('settingsPanel').hidden,paused:!started||!worldInputFocused||document.hidden||characterMenuOpen,playerRadius:CAT_R});dewGame?.update(dt,P.pos,{enabled:dewPlayEnabled(),visible:started&&!characterMenuOpen&&!equipment.open});}
 
   if(started&&!characterMenuOpen&&!equipment.open)life.update(dt,P.pos);
@@ -809,5 +824,5 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   snow.setPixelRatio?.(renderer.getPixelRatio());
 });
-window.__game = { fishing, roarContest, lake, talkToKeeper, P, cam, get dewNpc(){return dewNpc;},get dewGame(){return dewGame;},get dewLoading(){return dewLoading;},talkToDewFriend,get catbus(){return catbus;},get elderSanctuary(){return elderSanctuary;}, sunShafts,ocean,detailStream,weatherCycle,sprint,waterRecovery,useTotoroBed, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment, fantasyEcology };
+window.__game = { get moonNpc(){return moonNpc;},get moonLoading(){return moonLoading;},talkToMoonFriend,forestUnderstory,stonePaths, fishing, roarContest, lake, talkToKeeper, P, cam, get dewNpc(){return dewNpc;},get dewGame(){return dewGame;},get dewLoading(){return dewLoading;},talkToDewFriend,get catbus(){return catbus;},get elderSanctuary(){return elderSanctuary;}, sunShafts,ocean,detailStream,weatherCycle,sprint,waterRecovery,useTotoroBed, cat, totoro, chu, chibi, env, acorns, renderer, scene, sound, colliders, equipment, fantasyEcology };
 $('startBtn').disabled=false; $('startBtn').textContent='走进森林 →'; $('loadStatus').textContent='';finishStartup();document.body.classList.remove('is-loading');
