@@ -84,6 +84,7 @@ function buildShore(g, colliders) {
     const a = R() * Math.PI * 2, sx = L.x + Math.cos(a), sz = L.z + Math.sin(a), shore = lakeShore(sx, sz), d = shore + (R() - 0.65) * 1.6;
     const x = L.x + Math.cos(a) * d, z = L.z + Math.sin(a) * d;
     if (Math.abs(x - PIER.x) < 2.2 && z > L.z) continue; // keep the pier mouth clear
+    if (L.reflection && Math.hypot(x - L.reflection.x, z - L.reflection.z) < 5.2) continue; // 倒影宅门前的留白
     if (Math.sin(a * 3 + 1) < -0.35 && R() < 0.8) continue; // clumps, not a hedge
     const h = 0.7 + R() * 0.9, y = Math.max(heightAt(x, z), L.level - 0.05);
     m.compose(p.set(x, y, z), q.setFromEuler(e.set((R() - 0.5) * 0.25, R() * 6, (R() - 0.5) * 0.25)), s.set(1, h, 1)); reeds.setMatrixAt(n++, m);
@@ -106,6 +107,7 @@ function buildShore(g, colliders) {
     const a = R() * Math.PI * 2, d = lakeShore(L.x + Math.cos(a), L.z + Math.sin(a)) + 0.4 + R() * 1.2;
     const x = L.x + Math.cos(a) * d, z = L.z + Math.sin(a) * d;
     if (Math.abs(x - PIER.x) < 2.4 && z > L.z) continue;
+    if (L.reflection && Math.hypot(x - L.reflection.x, z - L.reflection.z) < 5.2) continue; // 门前不放石头
     const rr = 0.25 + R() * 0.45, rock = new THREE.Mesh(new THREE.IcosahedronGeometry(rr, 0), rockMat);
     rock.scale.set(1, 0.6, 0.9); rock.rotation.y = R() * 6; rock.position.set(x, heightAt(x, z) - 0.05, z); rock.castShadow = true; g.add(rock);
     if (rr > 0.5) colliders.push({ type: 'circle', x, z, r: rr * 0.8, top: heightAt(x, z) + rr * 0.5 });

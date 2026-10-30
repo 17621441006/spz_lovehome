@@ -11,8 +11,11 @@ import {CatBus} from '../dist/src/catbus.js';
 import {heightAt,edgeRadius,inLakeWater,LAYOUT} from '../dist/src/terrain.js';
 import {WALK_PATHS} from '../dist/src/world-layout.js';
 import {moveWithCollisions} from '../dist/src/collision.js';
+import {Landmarks32} from '../dist/src/landmarks32.js';
+import {ReflectionInterior} from '../dist/src/reflection-interior.js';
 
 const scene=new THREE.Scene();buildWorld(scene);buildLake(scene,colliders);await loadDreamWorld(scene,false);await addEnchantedGrove(scene,false);await addElderTree(scene);await addFantasyEcology(scene);const bus=await CatBus.create(scene,colliders);scene.updateMatrixWorld(true);
+await Landmarks32.create(scene,colliders);new ReflectionInterior(scene,colliders);scene.updateMatrixWorld(true);
 const obstacles=colliders.filter(c=>!c.catbus),round=n=>Number(n.toFixed(3));
 const distance=(x,z,c)=>c.type==='circle'?Math.hypot(x-c.x,z-c.z)-c.r:Math.hypot(Math.max(c.minX-x,0,x-c.maxX),Math.max(c.minZ-z,0,z-c.maxZ));
 const describe=c=>{const out={...c};delete out.onHit;delete out.sample;if(c.type==='circle'){const near=scene.children.filter(o=>o.name&&Math.hypot(o.position.x-c.x,o.position.z-c.z)<.3);if(near.length)out.objects=near.map(o=>o.name);}return out;};

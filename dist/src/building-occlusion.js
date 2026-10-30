@@ -45,7 +45,7 @@ export class BuildingOcclusion {
   // Also runs while fading so a streamed high-detail replacement is treated
   // before its first rendered frame, with the same reveal amount as its LOD.
   entry.root.traverse(mesh=>{
-   if(!mesh.isMesh||mesh.isSkinnedMesh||mesh.userData.buildingDepthOnly||entry.known.has(mesh))return;
+   if(!mesh.isMesh||mesh.isSkinnedMesh||mesh.userData.buildingDepthOnly||entry.known.has(mesh)||mesh.name.includes('Details'))return;
    entry.known.add(mesh);
    const originalMaterial=mesh.material,original=materialsOf(mesh),list=original.map(source=>{
     const material=source.clone(),previous=source.onBeforeCompile,key=source.customProgramCacheKey();
@@ -100,7 +100,7 @@ export class BuildingOcclusion {
     }
     let obstructed=false;
     entry.root.traverseVisible(mesh=>{
-     if(obstructed||!mesh.isMesh||mesh.isSkinnedMesh||mesh.userData.buildingDepthOnly)return;
+     if(obstructed||!mesh.isMesh||mesh.isSkinnedMesh||mesh.userData.buildingDepthOnly||mesh.name.includes('Details'))return;
      const materials=materialsOf(mesh);if(materials.every(m=>m.opacity<.1))return;
      // Defer the one-off BVH build until a camera/body segment actually enters
      // this building's bounds; distant architecture does no triangle work.
@@ -133,6 +133,14 @@ export class BuildingOcclusion {
   });
   this.scanClock-=dt;
   if(this.scanClock<=0){this.scan();for(const entry of this.entries)entry.box.setFromObject(entry.root);this.scanClock=1;}
+  for(const entry of this.entries){
+   const floor=entry.root.userData.walkableDeck?.y,revision=entry.root.userData.occlusionRevision;
+   if((floor!==undefined&&floor!==entry.floor)||revision!==entry.revision){
+    if(floor!==undefined){entry.floor=floor;entry.uniforms.uBuildingFloor.value=floor;}
+    entry.root.updateWorldMatrix(true,true);entry.box.setFromObject(entry.root);entry.revision=revision;
+    entry.blockedTime=entry.clearTime=0;
+   }
+  }
   this.sampleClock+=dt;
   if(this.sampleClock>=.10){this.measure(camera,head,feet,this.sampleClock);this.sampleClock=0;}
   camera.getWorldPosition(this.origin);

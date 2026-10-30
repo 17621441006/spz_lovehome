@@ -55,3 +55,26 @@ if(__game.dewLoading)await __game.dewLoading;
 assert(__game.dewNpc&&__game.dewGame,'Nearby lamp-tail NPC and dew HUD must finish loading');
 assert(__game.dewGame.hud&&__game.dewGame.ui.title&&__game.dewGame.ui.button);
 console.log({lazyDewNpcAndHud:'PASS',realCreatureGLB:true});
+
+// v32: use the real main loop, player recovery, UI priority and relocation hooks.
+for(const fn of inputHandlers.focus||[])fn();el('bSun').onclick();
+const rh=__game.reflectionInterior,lm=__game.landmarks;
+__game.P.pos.set(rh.b.x,heightAt(rh.b.x,rh.b.z+4.2),rh.b.z+4.2);__game.cam.yaw=0;__game.P.vel.set(0,0,0);__game.P.grounded=true;
+for(let i=0;i<30;i++)draw();key('keydown','KeyW','w');for(let i=0;i<150;i++)draw();key('keyup','KeyW','w');resetInput();for(const fn of inputHandlers.focus||[])fn();
+assert(__game.P.pos.z<rh.b.z+2.1,'Stone approach must be reachable on foot: '+JSON.stringify(__game.P.pos.toArray()));
+__game.P.pos.copy(rh.entry);__game.P.grounded=true;draw();assert.equal(el('actPrompt').dataset.target,'landmark');key('keydown','KeyE','e');key('keyup','KeyE','e');for(let i=0;i<65;i++)draw();
+assert(rh.active&&__game.P.grounded);assert(Math.abs(__game.P.pos.y-rh.floor)<.01,'Water recovery must retain the underwater room');
+const roomStart=__game.P.pos.clone();key('keydown','KeyA','a');for(let i=0;i<40;i++)draw();key('keyup','KeyA','a');assert(__game.P.pos.distanceTo(roomStart)>.2&&rh.roomContains(__game.P.pos));
+key('keydown','Space',' ');key('keyup','Space',' ');for(let i=0;i<90;i++)draw();assert.equal(__game.P.pos.y,rh.floor,'Low room ceiling cannot be jumped through');
+__game.P.pos.set(rh.center.x,rh.floor,rh.center.z+.6);draw();key('keydown','KeyE','e');key('keyup','KeyE','e');for(let i=0;i<70;i++)draw();assert(!rh.active&&__game.P.pos.y>.3);
+for(let cycle=0;cycle<2;cycle++){
+ const dock=lm.dock;__game.P.pos.set(dock.anchorX,heightAt(dock.anchorX,dock.anchorZ),dock.anchorZ);__game.P.grounded=true;draw();
+ key('keydown','KeyE','e');key('keyup','KeyE','e');for(let i=0;i<65;i++)draw();assert(lm.aboard&&__game.P.pos.x*dock.x>0);
+ const previousDock=lm.dockIndex;assert(lm.begin('sleep',__game.P.pos));assert(!lm.begin('sleep',__game.P.pos),'Repeated activation is ignored');
+ for(let i=0;i<240;i++)draw();assert.equal(lm.dockIndex,previousDock,'No relocation before five active seconds');
+ resetInput();for(let i=0;i<240;i++)draw();assert.equal(lm.dockIndex,previousDock,'Sleep pauses while unfocused');for(const fn of inputHandlers.focus||[])fn();
+ for(let i=0;i<95;i++)draw();assert.notEqual(lm.dockIndex,previousDock);assert(lm.aboard&&__game.P.grounded);assert(Math.abs(__game.P.pos.y-lm.dock.y)<.01);
+ key('keydown','KeyW','w');for(let i=0;i<180;i++)draw();key('keyup','KeyW','w');assert(__game.P.pos.distanceTo(lm.kite.position)<2,'Cabin edge prevents falling into the sea');
+ assert(lm.begin('exit',__game.P.pos));for(let i=0;i<65;i++)draw();assert(!lm.aboard);assert(__game.P.pos.distanceTo(new THREE.Vector3(lm.dock.anchorX,heightAt(lm.dock.anchorX,lm.dock.anchorZ),lm.dock.anchorZ))<.1);
+}
+console.log({reflectionApproachEnterWalkExit:'PASS',underwaterFloorAndCeiling:'PASS',kiteBoardSleepReturnExit:'PASS',sleepFiveActiveSeconds:'PASS',blurPausesTravel:'PASS',cabinEdgeSafety:'PASS'});

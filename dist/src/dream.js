@@ -36,11 +36,12 @@ function atmosphere(scene){
  motes=new THREE.Points(g,mat);motes.userData.seed=seed;scene.add(motes);
 }
 export async function loadDreamWorld(scene,low,{progressive=false}={}){
- const names=['forest-tree','forest-tree-lod','broadleaf-tree','broadleaf-tree-lod','fantasy-tree','fantasy-tree-lod','treehouse','shrine-lod','pagoda-lod','temple-lod',...LAYOUT.buildings.map(b=>b.id)];
+ const names=['forest-tree','forest-tree-lod','broadleaf-tree','broadleaf-tree-lod','fantasy-tree','fantasy-tree-lod','treehouse','shrine-lod','pagoda-lod','temple-lod',...LAYOUT.buildings.map(b=>b.id),LAYOUT.reflection.id];
  const streamed=new Set(['shrine','pagoda','temple']);
- const urls=[...new Set(names.map(n=>'assets/'+(progressive&&streamed.has(n)?n+'-lod':n)+'.glb'))];
+ const assetUrl=n=>n===LAYOUT.reflection.id?'assets/buildings/reflection-house-v2.glb':'assets/'+(progressive&&streamed.has(n)?n+'-lod':n)+'.glb';
+ const urls=[...new Set(names.map(assetUrl))];
  const files=new Map(await Promise.all(urls.map(async u=>[u,(await loadGLB(u)).scene])));
- const assets=Object.fromEntries(names.map(n=>[n,files.get('assets/'+(progressive&&streamed.has(n)?n+'-lod':n)+'.glb').clone(true)]));
+ const assets=Object.fromEntries(names.map(n=>[n,files.get(assetUrl(n)).clone(true)]));
  const originalBox=n=>ASSET_BOUNDS[n]?new THREE.Box3(new THREE.Vector3(...ASSET_BOUNDS[n].min),new THREE.Vector3(...ASSET_BOUNDS[n].max)):null;
 
  const trees={};for(const name of ['forest-tree','broadleaf-tree','fantasy-tree']){assets[name].updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(assets[name]);const high=normalizeModel(assets[name],8.4,bounds),far=normalizeModel(assets[name+'-lod'],8.4,bounds);wind(high);wind(far);coatTree(high);coatTree(far);trees[name]={high,far,roots:rootFootprint(high,far)};}
@@ -83,6 +84,33 @@ export async function loadDreamWorld(scene,low,{progressive=false}={}){
   colliders.push(...BUILDING_COLLISIONS[b.id].colliders.map(c=>({...c})));
   if(b.id==='shrine')openPavilion(root,b,scene,colliders);
   if(b.id==='temple')furnishTemple(root,b,scene,colliders);
+ }
+ // 星湖 · 倒影宅：模型原点就是水线，不套用贴地的 normalizeModel
+ {
+  const b=LAYOUT.reflection,root=assets[b.id].clone(true);
+  root.traverse(o=>{if(!o.isMesh)return;o.castShadow=false;o.receiveShadow=true;const ms=Array.isArray(o.material)?o.material:[o.material];
+   for(const m of ms){m.metalness=0;m.roughness=.9;m.side=THREE.FrontSide;
+    if(m.name==='RH_Glow'){m.emissive=new THREE.Color('#ffb964');m.emissiveIntensity=1.5;}
+    if(m.name==='RH_Paper'){m.emissive=new THREE.Color('#ffd9a6');m.emissiveIntensity=.30;}
+   }});
+  root.position.set(b.x,b.y,b.z);root.name=b.name;root.userData.buildingId=b.id;scene.add(root);
+  colliders.push({type:'box',minX:b.x-1.7,maxX:b.x+1.7,minZ:b.z-1.6,maxZ:b.z+1.7,top:b.y+0.60,floorOnly:true,reflectionIslet:true});
+  // 新开的一池静水 + 门前留白：水面、石板、讲规则的木牌
+  {
+   const water=createDreamWater(b.poolX,b.poolZ,b.poolR+0.35);
+   water.position.y=b.y;water.name='倒影池水面';scene.add(water);
+   const cv=document.createElement('canvas');cv.width=512;cv.height=256;
+   const ctx=cv.getContext('2d');ctx.fillStyle='#cbb489';ctx.fillRect(0,0,512,256);
+   ctx.strokeStyle='#8f7956';ctx.lineWidth=7;ctx.strokeRect(11,11,490,234);
+   ctx.fillStyle='#3a3126';ctx.textAlign='center';ctx.font='bold 60px serif';ctx.fillText('倒影池',256,100);
+   ctx.font='30px serif';ctx.fillText('走近门下 · E 拜访水下之家',256,168);
+   const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
+   const bx=b.x-3.0,bz=b.z+2.9,by=heightAt(bx,bz);
+   const board=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.85,0.07),new THREE.MeshStandardMaterial({map:tex,roughness:.95}));
+   board.position.set(bx,by+1.28,bz);board.rotation.y=0.75;board.castShadow=true;scene.add(board);
+   const post=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.07,1.0,7),new THREE.MeshStandardMaterial({color:'#70634a',roughness:1}));
+   post.position.set(bx,by+0.5,bz);post.castShadow=true;scene.add(post);
+  }
  }
  // Overlapping crowns form woodland rooms instead of evenly spaced park trees.
  // Reuse the low-poly meshes for these background layers; keep all road margins.

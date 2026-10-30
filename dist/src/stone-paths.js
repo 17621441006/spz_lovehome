@@ -7,6 +7,8 @@ import {rng} from './toon.js';
 // Thin, terrain-conforming paving: it changes the surface, never adds hundreds
 // of box colliders or forces a bobbing camera onto tiny steps.
 export const STONE_ROUTES=[
+ {id:'torii-nest',from:2,to:12,width:1.02,spacing:.82,style:'warm'},
+ {id:'reflection',from:1,to:20,width:.64,spacing:1.0,style:'moss'},
  {id:'elder',from:3,to:15.4,width:1.14,spacing:.78,style:'moss'},
  {id:'temple',from:5,to:24,width:1.12,spacing:.76,style:'warm'},
  {id:'town',from:12,to:22,width:.72,spacing:1.12,style:'moss'},

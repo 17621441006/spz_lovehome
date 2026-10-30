@@ -676,6 +676,9 @@ export function buildWorld(scene) {
 
 export function nearStructure(x, z, pad = 0) {
   const L = LAYOUT;
+  if(Math.hypot(x-L.toriiNest.x,z-L.toriiNest.z)<L.toriiNest.flat+pad)return true;
+  if(L.kiteDocks.some(d=>Math.hypot(x-d.anchorX,z-d.anchorZ)<3+pad))return true;
+  if(Math.hypot(x-L.reflection.poolX,z-L.reflection.poolZ)<L.reflection.poolR+.6+pad)return true;
   if(Math.hypot(x-L.elder.x,z-L.elder.z)<L.elder.flat+pad)return true;
   if(catbusRouteDist(x,z)<2.9+pad)return true;
   if(Math.abs(x-L.inari.x)<2.2+pad && z>L.inari.z-2-pad && z<42+pad) return true;

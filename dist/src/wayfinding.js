@@ -6,10 +6,14 @@ export function addWayfinding(scene){
  const group=new THREE.Group();group.name='林间岔路 · 木制指路牌';
  const wood=new THREE.MeshStandardMaterial({color:'#70634a',roughness:1});
  const forks=[
+  {x:26.3,z:17.5,labels:['→ 千本鸟居巢']},
+  {x:-33.7,z:14.9,labels:['↖ 系风亭 · 西岸风崖']},
+  {x:34.5,z:-20.3,labels:['→ 系风亭 · 东岸晴岬']},
   {x:-2.8,z:7.3,labels:['↑ 星湖 · 樟树神社','← 云冠古树','↓ 树屋 · 听风亭']},
   {x:13.9,z:9.3,labels:['→ 稻荷山道 · 寺院','↑ 龙猫车站 · 东岬']},
   {x:-19.8,z:10.2,labels:['← 樱影町屋','↓ 听风亭 · 草甸']},
   {x:10.3,z:-42.2,labels:['↗ 露灯小径 · 灯尾茸']},
+  {x:-17.4,z:9.2,labels:['↘ 倒影池 · 倒影宅']},
  ];
  for(const fork of forks){
   const post=new THREE.Group();post.position.set(fork.x,heightAt(fork.x,fork.z),fork.z);

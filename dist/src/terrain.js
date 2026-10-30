@@ -116,6 +116,16 @@ function rawHeightAt(x, z) {
   // lake: calm the meadow around it, lift a soft rim, then carve the basin
   const dl=lakeDist(x,z);
   if(dl<L.lake.r+22){const shore=lakeShore(x,z),calm=ss(shore+18,shore+6,dl);h=THREE.MathUtils.lerp(h,h*.35+.32,calm);h=THREE.MathUtils.lerp(h,-2.4,ss(shore+1.1,shore-3.2,dl));}
+  // 林间倒影池：新开的一小片静水，中央留一口深井给倒着的屋子
+  if (L.reflection) {
+    const rp = L.reflection, d = Math.hypot(x - rp.poolX, z - rp.poolZ);
+    if (d < rp.poolR + 4.5) {
+      const bank = 1 - ss(rp.poolR - 2.0, rp.poolR + 1.2, d);
+      h = THREE.MathUtils.lerp(h, rp.y - 0.35, bank);
+      const deep = 1 - ss(rp.poolR * 0.24, rp.poolR * 0.72, d);
+      h -= deep * 6.3;
+    }
+  }
   const dp = Math.hypot(x - L.pond.x, z - L.pond.z);
   if (dp < L.pond.r + 1.5) h -= 0.75 * ss(L.pond.r + 1.5, L.pond.r - 0.8, dp);
   if (rd < 1.6) h -= 0.05 * ss(1.6, 0.8, rd);
@@ -124,6 +134,8 @@ function rawHeightAt(x, z) {
 
 export function heightAt(x,z){
  let h=rawHeightAt(x,z);
+ const nest=LAYOUT.toriiNest,nd=Math.hypot(x-nest.x,z-nest.z);
+ if(nd<nest.flat+3)h=THREE.MathUtils.lerp(h,.25,1-ss(nest.flat,nest.flat+3,nd));
  const e=LAYOUT.elder,d=Math.hypot(x-e.x,z-e.z),w=1-ss(e.flat,e.blend,d);
  if(w>0)h=THREE.MathUtils.lerp(h,rawHeightAt(e.x,e.z),w);
  for(const b of LAYOUT.buildings){const d=Math.hypot(x-b.x,z-b.z),w=1-ss(b.flat,b.flat+3,d);if(w>0)h=THREE.MathUtils.lerp(h,rawHeightAt(b.x,b.z),w);}
