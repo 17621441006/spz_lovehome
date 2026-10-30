@@ -56,3 +56,11 @@ for(const [name,enter,leave]of blockedModes){
 }
 await answerInteract('resume');walkTo({x:home.x+1.2,z:home.z+.8});walkTo({x:home.x+1.2,z:home.z-1.3});walkTo(quest.nodes[0]);draw(20);assert.equal(quest.state.progress,1,'walking to the actual node resumes collection');
 console.log(JSON.stringify({realMainLazyNPC:'PASS',interactionPrompt:'PASS',blockedInvitationAndCollection:blockedModes.map(x=>x[0]),modalClearsInput:'PASS',activeAllowsWalking:'PASS',physicalCollection:'PASS',noMovingPlatform:'PASS',webgl:'Substituted renderer; actual world, GLB, main and collisions executed'},null,2));
+// The welcoming stone shares normal character/physics controls, not a display pose.
+const arrival=game.scene.userData.arrivalClearing;assert(arrival?.seat);
+event('blur');event('focus');game.P.pos.copy(arrival.seat.approach);game.P.vy=0;game.P.grounded=true;game.P.idle=0;game.cat.root.position.copy(game.P.pos);draw(3);
+assert.equal(el('actPrompt').dataset.target,'arrival');press('KeyE','e');draw(90);
+assert.equal(game.cat.state,'sit_idle');assert(Math.abs(game.P.pos.y-arrival.seat.position.y)<.01,'stone seat remains the actual support plane');
+press('KeyE','e');draw(60);assert(game.P.pos.distanceTo(arrival.seat.approach)<.05);assert.equal(game.cat.state,'idle');
+press('KeyE','e');draw(60);key('keydown','KeyW','w');draw(35);key('keyup','KeyW','w');assert(game.cat.state==='walk'||game.cat.state==='mesh_run','walking directly leaves the resting seat');
+console.log({arrivalPrompt:'PASS',seatSupport:'PASS',standAndWalkAway:'PASS'});

@@ -4,8 +4,9 @@ import {heightAt,inLakeWater,edgeRadius,LAYOUT} from './terrain.js';
 import {villageLaneDistance} from './village-routes.js';
 import {inElderRiver} from './elder-tree.js';
 import {colliders as worldColliders} from './world.js';
+import {DengweirongCanopy} from './dengweirong-canopy.js';
 
-export const DENGWEIRONG_ASSET='assets/creatures/dengweirong-v1.glb';
+export const DENGWEIRONG_ASSET='assets/creatures/dengweirong-v2.glb';
 const clamp=THREE.MathUtils.clamp,TAU=Math.PI*2,V=()=>new THREE.Vector3();
 const flatDistance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const point=p=>new THREE.Vector3(p.x,Number.isFinite(p.y)?p.y:0,p.z);
@@ -77,6 +78,7 @@ export class Dengweirong{
   this.time=0;this.lastGreet=-20;this.phase=0;this.speed=0;this.moving=false;this.farAnimationTime=0;this.lightProgress=0;this.lightTarget=0;
   this.random=options.random||Math.random;this.collider={type:'circle',x:this.position.x,z:this.position.z,r:options.collisionRadius??.28,top:this.position.y+.58,bottom:this.position.y,dynamic:true,noFloor:true,owner:'dengweirong'};
   this.navigation.obstacles.push(this.collider);this.lastWeather='sun';
+  this.canopy=options.canopy?new DengweirongCanopy(this,options.canopy):null;
  }
  prepareFeet(){
   for(const [name,offset]of [['Foot_FL',0],['Foot_BR',0],['Foot_FR',.5],['Foot_BL',.5]]){
@@ -86,17 +88,18 @@ export class Dengweirong{
   }
  }
  play(name,fade=.32){const action=this.actions[name]||this.actions.idle;if(action===this.currentAction)return;action.reset().setEffectiveWeight(1).play();if(this.currentAction)this.currentAction.crossFadeTo(action,fade,false);this.currentAction=action;}
- canInvite(player){const p=playerPoint(player);return !!p&&flatDistance(this.position,p)<this.inviteRange&&Math.abs((p.y||0)-this.position.y)<1.8&&this.state!=='lead';}
+ canInvite(player){const p=playerPoint(player);return (!this.canopy||this.canopy.low)&&!!p&&flatDistance(this.position,p)<this.inviteRange&&Math.abs((p.y||0)-this.position.y)<1.6&&this.state!=='lead';}
  headAnchor(target=V()){this.nodes.Head.getWorldPosition(target);target.y+=.16;return target;}
  tailAnchor(target=V()){return this.nodes.Lantern.getWorldPosition(target);}
  setLanternProgress(value){this.lightTarget=clamp(Number.isFinite(value)?value:0,0,1);}
  leadTo(nodes,{settleAtEnd=true}={}){
+  if(this.canopy){this.settle({duration:Infinity});return true;}
   const route=(Array.isArray(nodes)?nodes:[nodes]).filter(Boolean).map(point);if(!route.length)return false;let previous=this.position;
   for(const p of route){if(flatDistance(p,this.home)>12||!this.navigation.safeSegment(previous,p,this.collider))return false;p.y=this.navigation.ground(p.x,p.z);previous=p;}
   this.route=route;this.routeSettles=settleAtEnd;this.target=this.route.shift();this.state='lead';this.settleUntil=0;return true;
  }
- settle({lookAt=null,duration=Infinity}={}){this.target=null;this.route=[];this.lookAt=lookAt;this.settleUntil=duration===Infinity?Infinity:this.time+Math.max(0,duration);this.state='settled';this.speed=0;this.play('idle');}
- release(){this.settleUntil=0;this.lookAt=null;this.route=[];this.target=null;this.state='rest';this.nextDecision=this.time+1.5;}
+ settle({lookAt=null,duration=Infinity}={}){this.canopy?.settle();this.target=null;this.route=[];this.lookAt=lookAt;this.settleUntil=duration===Infinity?Infinity:this.time+Math.max(0,duration);this.state='settled';this.speed=0;this.play('idle');}
+ release(){this.canopy?.release();this.settleUntil=0;this.lookAt=null;this.route=[];this.target=null;this.state='rest';this.nextDecision=this.time+1.5;}
  chooseWander(){
   for(let attempt=0;attempt<16;attempt++){const supplied=this.waypoints.length&&this.random()<.6?this.waypoints[Math.floor(this.random()*this.waypoints.length)]:null,a=this.random()*TAU,r=Math.sqrt(this.random())*this.roamRadius,p=supplied?.clone()||new THREE.Vector3(this.roamCenter.x+Math.cos(a)*r,0,this.roamCenter.z+Math.sin(a)*r);
    if(flatDistance(p,this.roamCenter)>this.roamRadius||flatDistance(p,this.position)<.55||!this.navigation.safeSegment(this.position,p,this.collider))continue;this.target=p;this.state='wander';return;
@@ -121,7 +124,7 @@ export class Dengweirong{
    const phase=(cycle+foot.offset)%1,authoredLift=Math.max(0,lowest-this.position.y-foot.baseBottom),gestureLift=authoredLift*THREE.MathUtils.smoothstep(authoredLift,.005,.018),plannedStance=phase>=.45;
    // A greeting deliberately raises one paw. Preserve that authored lift while
    // the clip blends in/out; only its supporting feet are pinned to the ground.
-   const lift=(!walking||gestureWeight>.02)?gestureLift:plannedStance?0:authoredLift,stance=lift<.004&&(!walking||plannedStance),ground=this.navigation.ground(bottom.x,bottom.z),correction=clamp(ground+.006+lift-lowest,-.10,.10);
+   const lift=(!walking||gestureWeight>.02)?gestureLift:plannedStance?0:authoredLift,stance=lift<.004&&(!walking||plannedStance),ground=this.canopy?this.canopy.surface(bottom.x,bottom.z):this.navigation.ground(bottom.x,bottom.z),correction=clamp(ground+.006+lift-lowest,-.18,.18);
    const position=foot.bone.getWorldPosition(V());position.y+=correction;foot.bone.parent.worldToLocal(position);foot.bone.position.copy(position);foot.stance=stance;
   }this.group.updateMatrixWorld(true);
  }
@@ -129,7 +132,8 @@ export class Dengweirong{
   dt=clamp(Number.isFinite(dt)?dt:0,0,.1);this.time=Number.isFinite(time)?time:this.time+dt;const p=playerPoint(player),distance=p?flatDistance(this.position,p):Infinity,weather=context.weather;this.lastWeather=typeof weather==='string'?weather:(weather?.type||(weather?.rain>.35?'rain':weather?.snow>.35?'snow':weather?.night>.45?'night':'sun'));
   const active=distance<38;this.group.visible=distance<78;if(this.motes)this.motes.visible=distance<12;
   if(this.state==='settled'&&this.time>=this.settleUntil)this.release();
-  if(active&&!context.paused){
+  if(this.canopy){if(active)this.canopy.update(dt,p,{...context,weather:this.lastWeather});}
+  else if(active&&!context.paused){
    if(p&&distance<this.radius+(context.playerRadius??.4)+.08&&this.state!=='yield'&&this.state!=='settled'&&this.state!=='lead')this.yieldTo(p);
    if(this.state==='yield'&&!this.target){this.state=this.resumeState||'rest';this.target=this.resumeTarget||null;this.resumeState=null;this.resumeTarget=null;}
    if(!context.busy&&this.state!=='settled'&&this.state!=='lead'&&this.state!=='yield'){
@@ -143,7 +147,7 @@ export class Dengweirong{
   this.hint=!context.busy&&this.canInvite(p)?'E · 和灯尾茸打招呼':'';
   // Preserve the exact animated pose while a menu is open or the window loses
   // focus; grounding a suspended swing foot here would visibly pop it downward.
-  if(context.paused){this.hint='';return;}
+  if(context.paused||(this.canopy&&context.busy)){this.hint='';return;}
   if(!this.group.visible)return;
   this.farAnimationTime+=dt;const animate=distance<24||this.farAnimationTime>=.16;if(!animate)return;const elapsed=this.farAnimationTime;this.farAnimationTime=0;
   for(const rest of this.pose){rest.node.position.copy(rest.p);rest.node.quaternion.copy(rest.q);rest.node.scale.copy(rest.s);}
@@ -154,7 +158,8 @@ export class Dengweirong{
   this.nodes.Body.scale.copy(this.bodyScale);
   const blinkPhase=(this.time+1.25)%5.4,blink=blinkPhase<.18?Math.sin(blinkPhase/.18*Math.PI)**2:0;for(const {mesh,index}of this.blinkMeshes)mesh.morphTargetInfluences[index]=blink;
   this.lightProgress+=(this.lightTarget-this.lightProgress)*(1-Math.exp(-2.5*elapsed));for(const {material,base}of this.lanternMaterials){if(material.emissive&&material.emissive.getHex()===0)material.emissive.set('#ffd58c');material.emissiveIntensity=base*(.28+.72*this.lightProgress)+.08+Math.sin(this.time*1.15)*.025;}
-  this.updateFeet(this.moving);this.group.updateMatrixWorld(true);
+  this.canopy?.applyPose();
+  if(this.canopy?.mode!=='jump')this.updateFeet(this.moving);this.group.updateMatrixWorld(true);
  }
  dispose(){this.group.removeFromParent();const i=this.navigation.obstacles.indexOf(this.collider);if(i>=0)this.navigation.obstacles.splice(i,1);this.mixer.stopAllAction();this.mixer.uncacheRoot(this.model);for(const m of this.materials)m.dispose();}
 }

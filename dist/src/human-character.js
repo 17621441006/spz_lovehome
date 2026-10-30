@@ -58,8 +58,13 @@ export class HumanCharacter{
   for(const p of this.pose){p.bone.position.copy(p.p);p.bone.quaternion.copy(p.q);p.bone.scale.copy(p.s);}this.mixer.update(dt);for(const p of this.pose){p.p.copy(p.bone.position);p.q.copy(p.bone.quaternion);p.s.copy(p.bone.scale);}
   if(this.id==='xiaosi')for(const [b,q]of this.hairRest)b.quaternion.slerp(q,.72);
   if(this.id==='xiaosi')updateXiaosiWalk(this,dt,name==='walk');
-  this.sitBlend+=((name==='sit_idle'?1:0)-this.sitBlend)*(1-Math.exp(-7*dt));this.root.updateMatrixWorld(true);
-  if(this.sitBlend>.01){const hips=this.bones.Hips,at=hips.getWorldPosition(new THREE.Vector3());const local=this.model.worldToLocal(at.clone());const desired=this.modelPoint(local.x,this.id==='xiaosi'?.14:.16,local.z);hips.parent.worldToLocal(desired);hips.position.y=THREE.MathUtils.lerp(hips.position.y,desired.y,this.sitBlend);this.root.updateMatrixWorld(true);
+  const sitRate=this.id==='xiaosi'&&name!=='sit_idle'?5:7;
+  this.sitBlend+=((name==='sit_idle'?1:0)-this.sitBlend)*(1-Math.exp(-sitRate*dt));this.root.updateMatrixWorld(true);
+  // Calibrated from the actual skinned shorts underside, after shoe grounding.
+  // The old .14 m pelvis target left a 7.4 cm gap under Xiaosi's seated clothes.
+  // Keep the authored pelvis orientation and re-solve legs/hands below. A gentler
+  // stand-up blend accommodates the extra travel without a wrist/ankle snap.
+  if(this.sitBlend>.01){const hips=this.bones.Hips,at=hips.getWorldPosition(new THREE.Vector3());const local=this.model.worldToLocal(at.clone());const desired=this.modelPoint(local.x,this.id==='xiaosi'?.074:.16,local.z);hips.parent.worldToLocal(desired);hips.position.y=THREE.MathUtils.lerp(hips.position.y,desired.y,this.sitBlend);this.root.updateMatrixWorld(true);
    for(const [side,sign]of [['Left',1],['Right',-1]]){const foot=this.bones[side+'Foot'],target=foot.getWorldPosition(new THREE.Vector3()).lerp(this.modelPoint(sign*.115,.078,this.id==='xiaosi'?.25:.48),this.sitBlend);solveLimb(this.bones[side+'UpperLeg'],this.bones[side+'LowerLeg'],foot,target,this.modelPoint(sign*.13,.65,.24));const modelRotation=this.model.getWorldQuaternion(new THREE.Quaternion()),rest=modelRotation.clone();
     // A standing shoe orientation on a forward-sloping shin extended Xiaosi's
     // ankle to 168 degrees. Let the toes rise with the shin, keeping only ten

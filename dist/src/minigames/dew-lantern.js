@@ -3,7 +3,7 @@ import {showDialog} from './dialog.js';
 import {DewLanternState} from './dew-lantern-state.js';
 
 const STYLE=`#dewLanternHud{position:fixed;left:16px;bottom:18px;z-index:65;max-width:min(310px,calc(100vw - 32px));padding:12px 16px;border:1px solid #dce6c780;border-radius:17px;background:#f1f3e5e8;color:#395642;box-shadow:0 5px 20px #152d2520;font-family:inherit;font-size:14px;line-height:1.6;pointer-events:none}#dewLanternHud[hidden]{display:none}#dewLanternHud p{margin:0}#dewLanternHud small{display:block;color:#67775a}#dewLanternHud button{pointer-events:auto;margin-top:7px;border:0;border-radius:14px;background:#dce6c8;color:#395642;padding:7px 12px;font:inherit;cursor:pointer}#dewLanternHud button:disabled{opacity:.55;cursor:default}#dewLanternHud button:focus-visible{outline:2px solid #8eaa59;outline-offset:3px}@media(max-width:760px){#dewLanternHud{top:90px;bottom:auto;left:12px;width:220px;max-width:calc(100vw - 24px);box-sizing:border-box;padding:9px 12px;font-size:12.5px;line-height:1.5}#dewLanternHud button{margin-top:5px;padding:6px 10px}body:has(#dewLanternHud:not([hidden])) #toast{top:auto;bottom:150px}}`;
-const FACE='<img src="assets/creatures/dengweirong-portrait.png" alt="灯尾茸" style="display:block;width:100%;aspect-ratio:1;object-fit:contain;object-position:center;border-radius:50%;background:radial-gradient(circle,#f8f1d9,#dce8cb);border:2px solid #e3ebc8">';
+const FACE='<img src="assets/creatures/dengweirong-portrait-v2.png" alt="灯尾茸" style="display:block;width:100%;aspect-ratio:1;object-fit:contain;object-position:center;border-radius:50%;background:radial-gradient(circle,#fff1df,#e4dce5);border:2px solid #eee2d9">';
 const finite=p=>p&&[p.x,p.y,p.z].every(Number.isFinite);
 
 /** active means a saved task, not a movement lock. Only modal belongs in busy().
@@ -22,11 +22,11 @@ export class DewLanternGame{
  }
  get active(){return this.state.active;}
  get hint(){return this.state.phase==='return'?'交还露珠，领取信物':this.state.phase==='paused'?'接着帮灯尾茸找露珠':'和灯尾茸说话';}
- nearNpc(player=this.getPlayerPosition?.()){const p=this.npc.position||this.npc.group?.position;return finite(player)&&finite(p)&&Math.hypot(player.x-p.x,player.z-p.z)<(this.npc.inviteRange||2.5)&&Math.abs(player.y-p.y)<1.6;}
+ nearNpc(player=this.getPlayerPosition?.()){if(this.npc.canInvite)return this.npc.canInvite(player);const p=this.npc.position||this.npc.group?.position;return finite(player)&&finite(p)&&Math.hypot(player.x-p.x,player.z-p.z)<(this.npc.inviteRange||2.5)&&Math.abs(player.y-p.y)<1.6;}
  canInteract(player=this.getPlayerPosition?.()){return !this.disposed&&!this.modal&&this.canPlay()&&this.nearNpc(player);}
  async ask(lines,choices){
   if(this.disposed)return null;this.modal=true;this.onBusyChange(true);const focus=this.doc?.activeElement;
-  try{this.doc?.exitPointerLock?.();const choice=await this.dialog({speaker:'灯尾茸',color:'#80966b',face:FACE,lines,choices});return this.disposed?null:choice;}
+  try{this.doc?.exitPointerLock?.();const choice=await this.dialog({speaker:'灯尾茸',color:'#90818c',face:FACE,lines,choices});return this.disposed?null:choice;}
   finally{this.modal=false;this.previous=null;this.contact=0;this.onBusyChange(false);if(focus?.isConnected)focus.focus?.({preventScroll:true});this.refresh();}
  }
  async interact(){
@@ -42,7 +42,7 @@ export class DewLanternGame{
     if(invited)choices.push({label:'好呀，一起找五滴露珠',value:'start',main:true});
     if(this.state.data.reward.owned)choices.push({label:'看看我的露光信物',value:'token'});
     choices.push({label:'先去散步',value:null});
-    const lines=invited?['我的尾灯有点困了。愿意帮我找五滴露珠吗？它们就在旁边的小径上，一颗一颗亮给你看。','靠近亮着的露珠，稍停一下就能收集。没有倒计时；找齐后回来和我说话。离开会保留进度，Esc 可以稍歇或取消。']:[`尾灯还暖着呢，让我再歇 ${Math.ceil(this.state.cooldown/1000)} 秒。信物和散步纪录随时都能看。`];
+    const lines=invited?['我的尾灯有点困了。愿意帮我找五滴露珠吗？它们就在旁边的小径上，一颗一颗亮给你看。','靠近亮着的露珠，稍停一下就能收集。没有倒计时；找齐后回到入口的低枝下，和我说话。离开会保留进度，Esc 可以稍歇或取消。']:[`尾灯还暖着呢，让我再歇 ${Math.ceil(this.state.cooldown/1000)} 秒。信物和散步纪录随时都能看。`];
     const choice=await this.ask(lines,choices);
     if(choice==='start'&&this.state.accept(this.nearNpc())){this.freezeNpc();if(this.state.phase==='collecting')this.onToast('沿着第一滴柔光慢慢走 · 找齐后回来交谈');}
     else{this.state.decline();if(choice==='token')await this.tokenMenu();}
@@ -73,6 +73,7 @@ export class DewLanternGame{
  }
  freezeNpc(){
   const player=this.getPlayerPosition?.(),at=this.npc.position||this.npc.group?.position;this.previous=finite(player)?new THREE.Vector3().copy(player):null;this.contact=0;
+  if(this.npc.canopy){this.npc.settle?.({lookAt:player,duration:Infinity});return;}
   // It may have wandered onto a future dew before the invitation. Return to
   // its safe home instead of freezing its collider over a collectible.
   if(finite(at)&&this.nodes.some(p=>Math.hypot(at.x-p.x,at.z-p.z)<1.15)){

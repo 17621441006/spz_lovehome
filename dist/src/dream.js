@@ -8,8 +8,10 @@ import * as THREE from 'three';
 import {heightAt,LAYOUT,roadDist,trailDist,edgeRadius,catbusRouteDist} from './terrain.js';
 import {colliders,createTorii,nearStructure} from './world.js';
 import {rng} from './toon.js';
-import {focalClearing} from './world-layout.js';
+import {focalClearing,FOREST_REGIONS} from './world-layout.js';
 import {rootFootprint,rootPlacement,terrainSlope} from './tree-grounding.js';
+import {buildDewCanopy} from './dew-canopy.js';
+import {buildArrivalClearing} from './arrival-clearing.js';
 export let magicTreePrototype=null;
 const time={value:0},night={value:0},rain={value:0};
 let pondUniforms=null, motes=null;const lanterns=[];
@@ -82,6 +84,21 @@ export async function loadDreamWorld(scene,low,{progressive=false}={}){
   if(b.id==='shrine')openPavilion(root,b,scene,colliders);
   if(b.id==='temple')furnishTemple(root,b,scene,colliders);
  }
+ // Overlapping crowns form woodland rooms instead of evenly spaced park trees.
+ // Reuse the low-poly meshes for these background layers; keep all road margins.
+ const layerRandom=rng(3031),forestLayers=[];
+ for(const region of FOREST_REGIONS){let planted=0;for(let attempt=0;attempt<150&&planted<(low?6:10);attempt++){
+  const angle=layerRandom()*Math.PI*2,r=3+Math.sqrt(layerRandom())*9,x=region.x+Math.cos(angle)*r,z=region.z+Math.sin(angle)*r,size=.94+layerRandom()*.29,type=planted%3?'forest-tree':'broadleaf-tree';
+  if(Math.hypot(x,z)+4.2*size>LAYOUT.treeLimit||roadDist(x,z)<4.5||trailDist(x,z)<3.6||nearStructure(x,z,3)||focalClearing(x,z,2)||Math.hypot(x-LAYOUT.dewGlade.x,z-LAYOUT.dewGlade.z)<10)continue;
+  if(colliders.some(c=>c.type==='circle'&&Math.hypot(x-c.x,z-c.z)<c.r+2.3))continue;
+  if(rootPlacement(trees[type].roots,x,z,size,angle).spread>.8)continue;
+  const t=tree(type,x,z,size,angle,true);if(!t)continue;t.name='幽林 · 相叠树冠';
+  t.traverse(m=>{if(!m.isMesh)return;const shade=material=>{const c=material.clone();c.onBeforeCompile=material.onBeforeCompile;c.customProgramCacheKey=material.customProgramCacheKey;c.color.multiplyScalar(.86);c.emissiveIntensity=.045;return c;};m.material=Array.isArray(m.material)?m.material.map(shade):shade(m.material);});
+  forestLayers.push(t);planted++;
+ }}
+ scene.userData.forestLayers=forestLayers;
+ buildArrivalClearing(scene,trees['broadleaf-tree'],colliders);
+ buildDewCanopy(scene,trees['broadleaf-tree'],colliders,{low});
  stairs(scene);atmosphere(scene);boundaryMist(scene);
 
 }

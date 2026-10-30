@@ -31,9 +31,13 @@ export const WALK_PATHS=[
  {id:'pagoda',name:'东岬五重塔',points:[[22,-12],[32,-12],[35,-22],[37.3,-30]],width:1.15},
  {id:'dew',name:'露灯小径',points:[[8,-40],[11.5,-43.3],[14,-44],[16,-46]],width:.72},
  {id:'dew-loop',name:'晨露草隙',points:[[16,-46],[16,-48],[18,-49],[18,-51],[15,-51],[14.5,-49],[16,-46]],width:.45},
+ {id:'fern-loop',name:'蕨谷回环',points:[[-5,-23],[-12,-25],[-20,-27],[-27,-24],[-33,-25],[-36,-21],[-30,-17],[-28,-17],[-26,-20.5],[-20,-21],[-16,-21],[-12,-23],[-5,-23]],width:.72},
+ {id:'moon-wood',name:'月光林间',points:[[-3,-34],[3,-34],[8,-34.5],[11,-37],[13,-39],[11.5,-43.3]],width:.72},
 ];
 
 export function centralMeadow(x,z,pad=0){const c=LAYOUT.meadow;return ((x-c.x)/(c.rx+pad))**2+((z-c.z)/(c.rz+pad))**2<1;}
+export const FOREST_REGIONS=[{x:-31,z:-25,rx:16,rz:14},{x:12,z:-39,rx:14,rz:12}];
+export function forestDepth(x,z){let value=0;for(const f of FOREST_REGIONS){const d=Math.hypot((x-f.x)/f.rx,(z-f.z)/f.rz),t=Math.max(0,Math.min(1,(1.2-d)/.55));value=Math.max(value,t*t*(3-2*t));}return value;}
 export function focalClearing(x,z,pad=0){
  if(centralMeadow(x,z,pad))return true;
  const d=LAYOUT.dewGlade;if(((x-d.x)/(d.rx+pad))**2+((z-d.z)/(d.rz+pad))**2<1)return true;

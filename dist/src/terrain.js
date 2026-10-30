@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import {villageLaneDistance} from './village-routes.js';
 import { toon, rng } from './toon.js';
 
-import {LAYOUT,WALK_PATHS,centralMeadow} from './world-layout.js';
+import {LAYOUT,WALK_PATHS,centralMeadow,forestDepth} from './world-layout.js';
 export {LAYOUT} from './world-layout.js';
 
 function segDist(px, pz, ax, az, bx, bz) {
@@ -107,6 +107,9 @@ function rawHeightAt(x, z) {
   h+=1.7*hill(43,-31,12,13)*ss(1.6,4,td);
   // A quiet, low central meadow; relief and woodland belong between clearings.
   h*=1-.6*(1-ss(10,18,Math.hypot(x,z-5)));
+  // A shallow rise behind the welcoming tree, fading completely off every
+  // path and bus lane. The crossroads and original building pads stay level.
+  h+=.38*Math.exp(-(((x+7.5)/4.3)**2+((z-9.3)/3.6)**2))*ss(1.6,3.4,td)*ss(2.4,4.3,rd);
   // A finite grassy plateau falls into cloud-filled ravines beyond the play edge.
   const edge=edgeRadius(x,z);
   h-=11*ss(edge,edge+L.terrainRadius-L.playRadius,r);
@@ -144,6 +147,7 @@ export function buildTerrain() {
     c.copy(grassA).lerp(grassB, Math.max(0, Math.min(1, n)));
     const r = Math.hypot(x, z);
     c.lerp(forest, .35*ss(30, 43, r));
+    c.lerp(new THREE.Color('#45655a'),forestDepth(x,z)*.38);
     const slope=Math.hypot(heightAt(x+.3,z)-heightAt(x-.3,z),heightAt(x,z+.3)-heightAt(x,z-.3))/.6;
     c.lerp(cliff,ss(.5,1.3,slope)*.72);
     const edge=edgeRadius(x,z);c.lerp(cliff,ss(edge,edge+LAYOUT.terrainRadius-LAYOUT.playRadius-.5,r));
